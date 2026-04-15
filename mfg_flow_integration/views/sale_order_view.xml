@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--<odoo>
+    <record id="view_order_form_inherit_mo_po_button" model="ir.ui.view">
+        <field name="name">sale.order.form.mo.po.button</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_confirm']" position="after">
+                <button name="action_open_mo_po_wizard" 
+                        type="object" 
+                        string="Create MO/PO"
+                        class="btn-primary"
+                        invisible="state != 'sale' or mo_po_created or not needs_manufacturing_purchase"
+                        groups="mfg_flow_integration.group_store_department"/>
+            </xpath>
+            
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="needs_manufacturing_purchase" invisible="1"/>
+                <field name="mo_po_created" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo> -->
+
+
+
+
+
+<!-- 
+<odoo>
+    <record id="view_order_form_inherit_mo_po_button" model="ir.ui.view">
+        <field name="name">sale.order.form.mo.po.button</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_confirm']" position="after">
+                <button name="action_send_to_production" 
+                        type="object" 
+                        string="Send to Production"
+                        class="btn-warning"
+                        invisible="state != 'sale' or sent_to_production or not needs_manufacturing_purchase"
+                        groups="sales_team.group_sale_salesman"/>
+                
+                <button name="action_open_mo_po_wizard" 
+                        type="object" 
+                        string="Create MO/PO"
+                        class="btn-primary"
+                        invisible="state != 'sale' or mo_po_created or not sent_to_production"
+                        groups="mfg_flow_integration.group_store_department"/>
+            </xpath>
+            
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="needs_manufacturing_purchase" invisible="1"/>
+                <field name="mo_po_created" invisible="1"/>
+                <field name="sent_to_production" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo> -->
+
+
+
+<odoo>
+    <record id="view_order_form_inherit_mo_po_button" model="ir.ui.view">
+        <field name="name">sale.order.form.mo.po.button</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <!-- Add stat button for production request -->
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_production_request" 
+                        type="object" 
+                        class="oe_stat_button" 
+                        icon="fa-cogs"
+                        invisible="not production_request_id">
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_text">Production</span>
+                        <span class="o_stat_text">Request</span>
+                    </div>
+                </button>
+            </xpath>
+            
+            <!-- Add button in header after Confirm button -->
+            <xpath expr="//button[@name='action_confirm']" position="after">
+                <!-- SEND TO PRODUCTION button - Visible only to Sales Team -->
+                <button name="action_send_to_production" 
+                        type="object" 
+                        string="Send to Production"
+                        class="btn-warning"
+                         invisible="state != 'sale' or sent_to_production"
+                       />
+                        <!-- invisible="state != 'sale' or sent_to_production or not needs_manufacturing_purchase" -->
+            </xpath>
+            
+            <!-- Add fields to form (invisible, for computation) -->
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="needs_manufacturing_purchase" invisible="1"/>
+                <field name="mo_po_created" invisible="1"/>
+                <field name="sent_to_production" invisible="1"/>
+                <field name="production_request_id" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_sale_order_hide_create_invoice_crm" model="ir.ui.view">
+        <field name="name">sale.order.form.hide.create.invoice.crm</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+
+            <!-- Hide Create Invoice (fixed amount) when coming from CRM -->
+            <xpath expr="//button[@id='create_invoice']" position="attributes">
+                <attribute name="invisible">
+                    invoice_status != 'to invoice' or opportunity_id
+                </attribute>
+            </xpath>
+
+            <!-- Hide Create Invoice (percentage) when coming from CRM -->
+            <!-- <xpath expr="//button[@id='create_invoice_percentage']" position="attributes">
+                <attribute name="invisible">
+                    invoice_status != 'no' or state != 'sale' or opportunity_id
+                </attribute>
+            </xpath> -->
+
+        </field>
+    </record>
+
+    <record id="view_sale_order_form_inherit_gst" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.gst</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Add field below GST Treatment -->
+            <xpath expr="//field[@name='payment_term_id']" position="after">
+                <field name="customer_po"/>
+                            <field name = "customer_po_date"/>
+            <field name = "customer_po_number" />
+            </xpath>
+<xpath expr="//field[@name='order_line']/tree/field[@name='product_id']" position="after">
+    <field name="hsn_code"/>
+</xpath>
+
+<xpath expr="//field[@name='order_line']/form//field[@name='product_id']" position="after">
+    <field name="hsn_code"/>
+</xpath>
+        </field>
+    </record>
+
+
+
+
+    <record id="view_sale_order_form_customer_po_tracking" model="ir.ui.view">
+        <field name="name">sale.order.form.customer.po.tracking</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Insert new tab inside notebook -->
+            <xpath expr="//notebook" position="inside">
+
+                <page string="Customer PO Tracking" invisible="state == 'draft'">
+
+                    <field name="invoice_tracking_ids" readonly="1">
+
+                        <tree>
+                            <field name="invoice_date"/>
+                            <field name="invoice_id"/>
+                            <field name="product_id"/>
+                            <field name="qty_invoiced"/>
+                            <field name="cumulative_qty"/>
+                        </tree>
+
+                    </field>
+
+                </page>
+
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>
+
+
+
+
+    

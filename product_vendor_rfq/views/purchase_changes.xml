@@ -1,0 +1,105 @@
+<odoo>
+
+    <!-- ================= GROUPS ================= -->
+
+    <record id="group_accounts_approval" model="res.groups">
+        <field name="name">Accounts Approval</field>
+        <field name="category_id" ref="base.module_category_inventory"/>
+    </record>
+    <record id="group_accounts_approval_m" model="res.groups">
+        <field name="name">Accounts Approval (M)</field>
+        <field name="category_id" ref="base.module_category_inventory"/>
+    </record>
+
+    <record id="group_management_approval" model="res.groups">
+        <field name="name">Management Approval</field>
+        <field name="category_id" ref="base.module_category_inventory"/>
+    </record>
+
+    <record id="group_store_team" model="res.groups">
+        <field name="name">Store Team</field>
+        <field name="category_id" ref="base.module_category_inventory"/>
+    </record>
+
+
+    <!-- ================= RECORD RULE ================= -->
+
+    <record id="rule_store_confirmed_po_only" model="ir.rule">
+        <field name="name">Store: Only Confirmed POs</field>
+        <field name="model_id" ref="purchase.model_purchase_order"/>
+        <field name="groups" eval="[(4, ref('product_vendor_rfq.group_store_team'))]"/>
+        <field name="domain_force">[('state', 'in', ['purchase', 'done'])]</field>
+    </record>
+
+
+    <!-- ================= VIEW INHERIT ================= -->
+
+    <record id="purchase_order_form_inherit_approval" model="ir.ui.view">
+        <field name="name">purchase.order.form.approval</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Hide Default Confirm Button -->
+            <xpath expr="//button[@name='button_confirm']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+
+            <!-- Add Buttons -->
+
+            <xpath expr="//header" position="inside">
+
+                <!-- Send to Accounts -->
+                <button name="action_send_for_accounts"
+                        type="object"
+                        string="Send for Accounts Approval"
+                        class="btn-primary"
+                        invisible="state not in ['draft', 'sent']"/>
+
+                <!-- Accounts Approval -->
+                <!-- <button name="action_accounts_approve"
+                        type="object"
+                        string="Approve (Accounts)"
+                        class="btn-success"
+                        invisible="state != 'to_approve_accounts'"
+                        groups="product_vendor_rfq.group_accounts_approval,product_vendor_rfq.group_accounts_approval_m "/> -->
+
+                        <!-- invisible="[('state', '!=', 'to_approve_accounts')]" -->
+
+                        <!-- Accounts Approval button (first snippet) -->
+                <button name="action_accounts_approve"
+                        type="object"
+                        string="Approve (Accounts)"
+                        class="btn-success"
+                        invisible="state != 'to_approve_accounts'"
+                        groups="product_vendor_rfq.group_accounts_approval"/>
+                
+                <button name="action_accounts_approve"
+                        type="object"
+                        string="Approve (Accounts)"
+                        class="btn-success"
+                        invisible="state != 'to_approve_accounts'"
+                        groups="product_vendor_rfq.group_accounts_approval_m"/>
+                
+
+
+
+                <!-- Management Approval -->
+                <button name="action_management_approve"
+                        type="object"
+                        string="Approve (Management)"
+                        class="btn-success"
+                         invisible="state != 'to_approve_management'"
+                        groups="product_vendor_rfq.group_management_approval"/>
+
+                        <!--  invisible="state != 'to_approve_management'"
+                        
+                        
+                        invisible="[('state', '!=', 'to_approve_management')]" -->
+
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

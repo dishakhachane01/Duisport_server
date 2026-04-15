@@ -1,0 +1,23 @@
+<odoo>
+
+
+<record id="production_request_company_rule" model="ir.rule">
+    <field name="name">Production Request Multi Company</field>
+    <field name="model_id" ref="model_production_request"/>
+    <field name="groups" eval="[(4, ref('mfg_flow_integration.group_store_department'))]"/>
+    <field name="domain_force">
+        ['|',
+            ('company_id', '=', False),
+            ('company_id', 'in', company_ids)
+        ]
+    </field>
+</record>
+
+
+    <!-- Store Department Group -->
+    <record id="group_store_department" model="res.groups">
+        <field name="name">Store Department(confirm orders)</field>
+        <field name="category_id" ref="base.module_category_inventory"/>
+        <field name="comment">Users in this group can create Manufacturing or Purchase Orders from Sale Orders.</field>
+    </record>
+</odoo>

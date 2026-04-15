@@ -1,0 +1,157 @@
+<t t-name="advanced_dashboard">
+    <div class="o_dashboard container">
+
+        <!-- ================= STATS ================= -->
+        <h2>Overall Statistics</h2>
+
+        <!-- SALES -->
+        <h4>Sales</h4>
+        <div class="row mb-4">
+            <div class="col-4">
+                <div class="card p-3 bg-light" style="cursor:pointer;"
+     t-on-click="() => openSales('draft')">
+                    <h3><t t-esc="dataa.sales.draft or 0"/></h3>
+                    <p>Quotation</p>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card p-3 bg-warning" style="cursor:pointer;"
+     t-on-click="() => openSales('sent')">
+                    <h3><t t-esc="dataa.sales.sent or 0"/></h3>
+                    <p>Quotation Sent</p>
+                </div>
+            </div>
+            <div class="col-4" >
+                <div class="card p-3 bg-success text-white" style="cursor:pointer;"
+     t-on-click="() => openSales('sale')">
+                    <h3><t t-esc="dataa.sales.sale or 0"/></h3>
+                    <p>Sales Order</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- INVENTORY -->
+        <h4>Inventory</h4>
+        <div class="row mb-4">
+            <div class="col-4">
+                <div class="card p-3 bg-secondary text-white" style="cursor:pointer;"
+     t-on-click="() => openInventory('waiting')">
+                    <h3><t t-esc="dataa.inventory.waiting or 0"/></h3>
+                    <p>Waiting</p>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card p-3 bg-primary text-white" style="cursor:pointer;"
+     t-on-click="() => openInventory('assigned')">
+                    <h3><t t-esc="dataa.inventory.assigned or 0"/></h3>
+                    <p>Ready</p>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card p-3 bg-success text-white" style="cursor:pointer;"
+     t-on-click="() => openInventory('done')">
+                    <h3><t t-esc="dataa.inventory.done or 0"/></h3>
+                    <p>Done</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MANUFACTURING -->
+        <h4>Manufacturing</h4>
+        <div class="row mb-4">
+            <div class="col-4">
+                <div class="card p-3 bg-light" style="cursor:pointer;"
+     t-on-click="() => openMRP('draft')">
+                    <h3><t t-esc="dataa.manufacturing.draft or 0"/></h3>
+                    <p>Draft</p>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card p-3 bg-warning" style="cursor:pointer;"
+     t-on-click="() => openMRP('confirmed')">
+                    <h3><t t-esc="dataa.manufacturing.confirmed or 0"/></h3>
+                    <p>Confirmed</p>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card p-3 bg-success text-white" style="cursor:pointer;"
+     t-on-click="() => openMRP('done')">
+                    <h3><t t-esc="dataa.manufacturing.done or 0"/></h3>
+                    <p>Done</p>
+                </div>
+            </div>
+        </div>
+
+        <hr/>
+
+        <!-- ================= PENDING SECTION ================= -->
+
+        <!-- COUNTS -->
+        <div class="row mb-4">
+            <div class="col-6">
+                <div class="card p-3 bg-danger text-white">
+                    <h2><t t-esc="data.po_count or 0"/></h2>
+                    <p>Pending Management Approval</p>
+                </div>
+            </div>
+
+            <div class="col-6">
+                <div class="card p-3 bg-warning">
+                    <h2><t t-esc="data.rfq_count or 0"/></h2>
+                    <p>RFQ Received</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- PO LIST -->
+        <h3>Pending Purchase Orders</h3>
+        <table class="table table-hover">
+            <tbody>
+                <t t-foreach="data.po_list" t-as="po" t-key="po.id">
+                    <tr t-on-click="() => openPO(po.id)">
+                        <td><t t-esc="po.name"/></td>
+                        <td><t t-esc="po.partner"/></td>
+                        <td><t t-esc="po.amount"/></td>
+                    </tr>
+                </t>
+            </tbody>
+        </table>
+
+        <!-- RFQ LIST -->
+        <h3>RFQ Pending for Comparison</h3>
+        <table class="table table-hover">
+            <tbody>
+                <t t-foreach="data.rfq_list" t-as="rfq" t-key="rfq.id">
+                    <tr t-on-click="() => openRFQ(rfq.id)">
+                        <td><t t-esc="rfq.name"/></td>
+                        <td><t t-esc="rfq.date"/></td>
+                        <td><t t-esc="rfq.state"/></td>
+                    </tr>
+                </t>
+            </tbody>
+        </table>
+<!-- ================= VENDOR APPROVAL ================= -->
+
+<div class="row mb-4">
+    <div class="col-6">
+        <div class="card p-3 bg-info text-white">
+            <h2><t t-esc="data.vendor_count or 0"/></h2>
+            <p>Vendors Pending Management Approval</p>
+        </div>
+    </div>
+</div>
+
+<h3>Vendor Approval Pending</h3>
+<table class="table table-hover">
+    <tbody>
+        <t t-foreach="data.vendor_list" t-as="vendor" t-key="vendor.id">
+            <tr t-on-click="() => openVendor(vendor.id)">
+                <td><t t-esc="vendor.name"/></td>
+                <td><t t-esc="vendor.email"/></td>
+                <td><t t-esc="vendor.state"/></td>
+            </tr>
+        </t>
+    </tbody>
+</table>
+    </div>
+</t>

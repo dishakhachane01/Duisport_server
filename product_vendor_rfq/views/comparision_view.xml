@@ -1,0 +1,125 @@
+<odoo>
+<template id="rfq_vertical_comparison_template" name="RFQ Vertical Comparison Styled">
+    <t t-call="web.html_container">
+        <t t-call="web.basic_layout">
+            <style>
+                .rfq-table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: Arial, sans-serif; }
+                .rfq-table th { background: #003366; color: #fff; padding: 8px 12px; text-align: center; font-weight: 600; }
+                .rfq-table th.product-col { text-align: left; }
+                .rfq-table td { padding: 8px 12px; border-bottom: 1px solid #dee2e6; vertical-align: top; text-align: center; }
+                .rfq-table td.product-col { text-align: left; font-weight: 500; color: #1a1a1a; }
+                .rfq-table tfoot td { font-weight: 600; background: #f0f4f8; border-top: 2px solid #003366; }
+                .rfq-table tfoot td.label-col { text-align: left; }
+                .unit-price { font-weight: 600; color: #0b5ed7; }
+                .line-total { font-size: 11px; color: #666; margin-top: 2px; }
+                .l1-cell { background: #e6f4ec; }
+                .l2-cell { background: #fff8e6; }
+                .l3-cell { background: #fef0f0; }
+                .rank-badge { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+                .badge-l1 { background: #c3e6cb; color: #155724; }
+                .badge-l2 { background: #ffeeba; color: #856404; }
+                .badge-l3 { background: #f5c6cb; color: #721c24; }
+                .na-cell { color: #aaa; font-style: italic; }
+                .comparison-header { font-size: 20px; font-weight: 600; color: #1a1a1a; margin-bottom: 16px; border-bottom: 2px solid #ccc; padding-bottom: 6px; }
+                .meta { font-size: 13px; color: #555; margin-bottom: 16px; }
+            </style>
+
+            <div class="container mt16 mb16">
+                <h2 class="comparison-header">Vendor Comparison: <t t-esc="rfq.name"/></h2>
+                <div class="meta">
+                    Date: <t t-esc="rfq.date"/>
+                    <t t-if="rfq.deadline"> Deadline: <t t-esc="rfq.deadline"/></t>
+                    <t t-if="rfq.description"> <t t-esc="rfq.description"/></t>
+                </div>
+
+                <table class="rfq-table">
+                    <thead>
+                        <tr>
+                            <th class="product-col">Product</th>
+                            <th>Qty</th>
+                            <t t-foreach="vendors" t-as="vendor">
+                                <t t-set="vquote" t-value="quotes.filtered(lambda q: q.vendor_id == vendor)[:1]"/>
+                                <th>
+                                    <t t-esc="vendor.name"/>
+                                    <t t-if="vquote and vquote.is_l1">
+                                        <span class="rank-badge badge-l1">L1</span>
+                                    </t>
+                                    <t t-elif="vquote and vquote.is_l2">
+                                        <span class="rank-badge badge-l2">L2</span>
+                                    </t>
+                                    <t t-elif="vquote and vquote.is_l3">
+                                        <span class="rank-badge badge-l3">L3</span>
+                                    </t>
+                                </th>
+                            </t>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-foreach="products" t-as="product">
+                            <tr>
+                                <td class="product-col"><t t-esc="product.display_name"/></td>
+                                <td>
+                                    <t t-set="rfq_line" t-value="rfq.rfq_line_ids.filtered(lambda l: l.product_id == product)[:1]"/>
+                                    <t t-if="rfq_line">
+                                        <t t-esc="rfq_line.quantity"/> <t t-esc="rfq_line.uom_id.name"/>
+                                    </t>
+                                </td>
+                                <t t-foreach="vendors" t-as="vendor">
+                                    <t t-set="quote" t-value="quotes.filtered(lambda q: q.vendor_id == vendor)[:1]"/>
+                                    <t t-set="qline" t-value="quote.quote_line_ids.filtered(lambda l: l.product_id == product)[:1] if quote else False"/>
+                                    <t t-if="qline and qline.unit_price">
+                                        <td t-attf-class="{{ 'l1-cell' if quote.is_l1 else ('l2-cell' if quote.is_l2 else ('l3-cell' if quote.is_l3 else '')) }}">
+                                            <div class="unit-price">₹<t t-esc="'%.2f' % qline.unit_price"/></div>
+                                            <div class="line-total">Total: ₹<t t-esc="'%.2f' % qline.total_price"/></div>
+                                        </td>
+                                    </t>
+                                    <t t-else="">
+                                        <td class="na-cell">—</td>
+                                    </t>
+                                </t>
+                            </tr>
+                        </t>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td class="label-col" colspan="2">Total Quote</td>
+                            <t t-foreach="vendors" t-as="vendor">
+                                <t t-set="vquote" t-value="quotes.filtered(lambda q: q.vendor_id == vendor)[:1]"/>
+                                <td><t t-if="vquote">₹<t t-esc="'%.2f' % vquote.total_amount"/></t><t t-else="">—</t></td>
+                            </t>
+                        </tr>
+                        <tr>
+                            <td class="label-col" colspan="2">Delivery Time</td>
+                            <t t-foreach="vendors" t-as="vendor">
+                                <t t-set="vquote" t-value="quotes.filtered(lambda q: q.vendor_id == vendor)[:1]"/>
+                                <td><t t-if="vquote and vquote.delivery_time"><t t-esc="vquote.delivery_time"/> days</t><t t-else="">—</t></td>
+                            </t>
+                        </tr>
+                        <tr>
+                            <td class="label-col" colspan="2">Status</td>
+                            <t t-foreach="vendors" t-as="vendor">
+                                <t t-set="vquote" t-value="quotes.filtered(lambda q: q.vendor_id == vendor)[:1]"/>
+                                <td><t t-if="vquote"><t t-esc="vquote.state"/></t><t t-else="">—</t></td>
+                            </t>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <p style="margin-top:16px; font-size:12px; color:#555;">
+                    <strong>L1</strong> = Lowest total <span>|</span>
+                    <strong>L2</strong> = 2nd lowest <span>|</span>
+                    <strong>L3</strong> = 3rd lowest
+                </p>
+            </div>
+        </t>
+    </t>
+</template>
+
+<record id="action_rfq_comparison_report" model="ir.actions.report">
+    <field name="name">RFQ Vendor Comparison</field>
+    <field name="model">rfq.request</field>
+    <field name="report_type">qweb-html</field>
+    <field name="report_name">product_vendor_rfq.rfq_vertical_comparison_template</field>
+    <field name="report_file">product_vendor_rfq.rfq_vertical_comparison_template</field>
+</record>
+</odoo>

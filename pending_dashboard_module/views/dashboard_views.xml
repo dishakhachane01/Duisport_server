@@ -1,0 +1,32 @@
+
+<odoo>
+    <record id="view_pending_dashboard_form" model="ir.ui.view">
+        <field name="name">pending.dashboard.form</field>
+        <field name="model">pending.dashboard</field>
+        <field name="arch" type="xml">
+            <form string="Pending Dashboard">
+                <group>
+                    <field name="crm_count"/>
+                    <field name="sale_count"/>
+                    <field name="purchase_count"/>
+                    <field name="rfq_count"/>
+                    <field name="inventory_in_count"/>
+                    <field name="inventory_out_count"/>
+                    <field name="mfg_count"/>
+                    <field name="invoice_count"/>
+                </group>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_pending_dashboard" model="ir.actions.act_window">
+        <field name="name">Pending Dashboard</field>
+        <field name="res_model">pending.dashboard</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+    </record>
+
+    <menuitem id="menu_pending_dashboard"
+              name="Pending Dashboard"
+              action="action_pending_dashboard"/>
+</odoo>

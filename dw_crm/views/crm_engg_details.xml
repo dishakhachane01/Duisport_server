@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_crm_lead_form_inherit_engineering" model="ir.ui.view">
+        <field name="name">crm.lead.form.inherit.engineering</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//notebook" position="inside">
+                <page string="Engineering Details">
+           
+                   <group>
+                        <field name="engineering_team_id" readonly="1"/>
+                        <field name="engineer_id" string="Sales person" readonly="1" />
+                        <field name="estimation_time" readonly="1"/>
+                        <field name="engineering_notes" readonly="1"/>
+                        <field name="design_ref" readonly="1"
+                               filename="design_ref_filename"/>
+     
+                               <field name="packing_cost_sheet_ids"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="rule_no_rejected_vendor_on_po" model="ir.rule">
+        <field name="name">Block Rejected Vendor on Purchase Order</field>
+        <field name="model_id" ref="purchase.model_purchase_order"/>
+        <field name="domain_force">
+            [('partner_id.vendor_approval_state', '!=', 'rejected')]
+        </field>
+        <field name="perm_read" eval="False"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+</odoo>

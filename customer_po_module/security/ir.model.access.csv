@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_customer_po_sales,customer_po_sales,model_customer_po,customer_po_module.group_sales_user_custom,1,1,1,0
+access_customer_po_accounts,customer_po_accounts,model_customer_po,customer_po_module.group_accounts_user_custom,1,1,1,0

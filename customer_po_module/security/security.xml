@@ -1,0 +1,9 @@
+<odoo>
+    <record id="group_sales_user_custom" model="res.groups">
+        <field name="name">Sales PO User</field>
+    </record>
+
+    <record id="group_accounts_user_custom" model="res.groups">
+        <field name="name">Accounts PO User</field>
+    </record>
+</odoo>

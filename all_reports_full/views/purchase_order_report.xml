@@ -1,0 +1,666 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_purchase_order_custom">
+        <t t-call="web.basic_layout">
+            <meta charset="utf-8"/>
+            <style>
+                    @page {
+        size: A4;
+        margin: 2mm;
+        -webkit-print-color-adjust: exact;  <!-- ADD THIS -->
+        print-color-adjust: exact;           <!-- ADD THIS -->
+    }
+    body {
+        font-size: 16px;
+        font-family: "DejaVu Sans", "Noto Sans", Arial, sans-serif;
+        -webkit-print-color-adjust: exact;   <!-- ADD THIS -->
+    }
+                .cell {
+                    border: 0.6px solid #777;
+                    padding: 6px;
+                    vertical-align: top;
+                    font-size: 16px;
+                }
+
+                .item-cell {
+                    border-left: 0.6px solid #777;
+                    border-right: 0.6px solid #777;
+                    border-top: 0;
+                    border-bottom: 0;
+                    padding: 6px;
+                }
+
+
+                .center {
+                    text-align: center;
+                }
+
+                table {
+                    page-break-inside: auto;
+                }
+
+                tr {
+                    page-break-after: auto;
+                }
+
+                .no-break {
+                    page-break-inside: avoid;
+                }
+
+                th {
+                    font-weight: normal;
+                }
+
+            </style>
+
+            <t t-foreach="docs" t-as="o">
+
+                <div style="position: relative; width:100%;">
+                  <style>
+        <t t-if="o.state == 'purchase'">
+            body {
+                background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Ctext x='50%25' y='50%25' font-size='32' font-family='DejaVu Sans,Arial,sans-serif' font-weight='bold' fill='%2300AA00' fill-opacity='0.13' text-anchor='middle' dominant-baseline='middle' transform='rotate(-45 150 150)'%3EAPPROVED PO%3C/text%3E%3C/svg%3E");
+                background-repeat: repeat;
+                background-size: 794px 1123px;
+            }
+        </t>
+        <t t-if="o.state != 'purchase'">
+            body {
+                background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Ctext x='50%25' y='50%25' font-size='26' font-family='DejaVu Sans,Arial,sans-serif' font-weight='bold' fill='%23CC0000' fill-opacity='0.13' text-anchor='middle' dominant-baseline='middle' transform='rotate(-45 150 150)'%3ENOT APPROVED PO%3C/text%3E%3C/svg%3E");
+                background-repeat: repeat;
+                background-size: 794px 1123px;
+            }
+        </t>
+    </style>
+
+
+<!-- <t t-if="o.state == 'purchase'">
+    <style>
+        body {
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='794' height='1123'%3E%3Ctext x='397' y='561' font-size='60' font-family='DejaVu Sans,Arial,sans-serif' font-weight='bold' fill='%2300AA00' fill-opacity='0.15' text-anchor='middle' dominant-baseline='middle' transform='rotate(-45 397 561)'%3EAPPROVED PO%3C/text%3E%3C/svg%3E");
+            background-repeat: repeat;
+              background-attachment: fixed;
+            background-size: 794px 1123px;
+            -webkit-print-color-adjust: exact;
+        }
+    </style>
+</t>
+
+<t t-if="o.state != 'purchase'">
+    <style>
+        body {
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='794' height='1123'%3E%3Ctext x='397' y='561' font-size='60' font-family='DejaVu Sans,Arial,sans-serif' font-weight='bold' fill='%23CC0000' fill-opacity='0.15' text-anchor='middle' dominant-baseline='middle' transform='rotate(-45 397 561)'%3ENOT APPROVED PO%3C/text%3E%3C/svg%3E");
+            background-repeat: repeat;
+            background-size: 794px 1123px;
+              background-attachment: fixed;
+            -webkit-print-color-adjust: exact;
+        }
+    </style>
+</t> -->
+
+
+
+
+                                          <t t-if="o.company_id.id == 1">
+                    <div> <img t-att-src="'%s/all_reports_full/static/src/img/header2.png' % request.env['ir.config_parameter'].sudo().get_param('web.base.url')" style="width:100%; height:auto; border:1px solid #000;"/>
+                    </div>
+                </t>
+                <t t-if="o.company_id.id == 2">  
+                     <div> <img t-att-src="'%s/all_reports_full/static/src/img/manesar.png' % request.env['ir.config_parameter'].sudo().get_param('web.base.url')" style="width:100%; height:120px; border:1px solid #000;"/>
+                    </div>
+                </t>
+
+                    <!-- HEADING -->
+                    <div style="text-align:center;font-weight:bold;font-size:16px;margin:4mm;">
+                        PURCHASE ORDER
+                    </div>
+
+                    <!-- PAGE BORDER -->
+                    <div>
+
+
+                        <!-- MASTER TABLE -->
+                        <table style="width:100%; border-collapse:collapse;">
+
+                            <tr>
+
+                                <!-- ================= LEFT SIDE (57%) ================= -->
+                                <td class="cell" style="width:57%; vertical-align:top; padding:0;">
+
+                                <table style="width:100%; border-collapse:collapse;">
+
+                                    <!-- INVOICE TO -->
+                                        <!-- <tr>
+                                            <td style="padding:0; border:none;">
+
+                                                <img src="/all_reports_full/static/src/img/header2.png"
+                                                    alt="Company Header"
+                                                    style="width:100%; height:auto; display:block; border:1px solid #000;"/>
+
+                                            </td>
+                                        </tr> -->
+
+                                    <!-- CONSIGNEE (SHIP TO) -->
+                                    <tr>
+                                        <td class="cell" style="border-left:none; border-right:none;">
+                                            Consignee (Ship to)<br/>
+
+                                            <strong t-esc="o.ship_to_name"/><br/>
+
+                                            <t t-if="o.ship_to_street">
+                                                <span t-esc="o.ship_to_street"/><br/>
+                                            </t>
+
+                                            <t t-if="o.ship_to_street2">
+                                                <span t-esc="o.ship_to_street2"/><br/>
+                                            </t>
+
+                                            <t t-if="o.ship_to_city or o.ship_to_zip">
+                                                <span t-esc="o.ship_to_city"/> - <span t-esc="o.ship_to_zip"/><br/>
+                                            </t>
+
+                                            <t t-if="o.ship_to_gstin">
+                                                GSTIN/UIN: <span t-esc="o.ship_to_gstin"/><br/>
+                                            </t>
+
+                                            <t t-if="o.ship_to_state_id">
+                                                State Name: <span t-esc="o.ship_to_state_id.name"/>
+                                            </t>
+
+                                        </td>
+                                    </tr>
+
+
+                                    <!-- SUPPLIER -->
+                                    <tr>
+                                        <td class="cell" style="border-left:none; border-right:none; border-bottom:none;">
+                                            Supplier (Bill from)<br/>
+                                            <strong t-esc="o.partner_id.name"/><br/>
+                                            <span t-esc="o.partner_id.street"/><br/>
+                                            GSTIN/UIN :
+                                            <span t-esc="o.partner_id.vat"/><br/>
+                                            State Name :
+                                            <span t-esc="o.partner_id.state_id.name"/>
+                                            
+
+
+                                    
+                                        </td>
+                                    </tr>
+
+                                </table>
+
+                            </td>
+
+
+                                <!-- ================= RIGHT SIDE (43%) ================= -->
+                                <td class="cell" style="width:43%; vertical-align:top; padding:0;">
+
+                                    <!-- HEADER GRID -->
+                                    <table style="width:100%; border-collapse:collapse;">
+                                        <tr>
+                                            <td class="cell">
+                                                Voucher No.<br/>
+                                                <strong t-esc="o.name"/>
+                                            </td>
+                                            <td class="cell">
+                                                Dated<br/>
+                                                <strong t-esc="o.date_order.strftime('%d-%b-%Y')"/>
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td class="cell"></td>
+                                           <td class="cell">
+                                                Mode / Terms of Payment<br/>
+                                                <strong t-if="o.payment_term_id" t-esc="o.payment_term_id.name"/>
+                                            </td>
+
+                                        </tr>
+
+                                        <tr>
+                                            <td class="cell">
+                                                Reference No. &amp; Date<br/>
+                                                <strong t-esc="o.name"/>
+                                            </td>
+                                            <td class="cell">
+                                                Other References<br/>
+                                                <strong t-if="o.other_references" t-esc="o.other_references"/>
+                                            </td>
+
+                                        </tr>
+
+                                        <tr>
+                                            <td class="item-cell">
+                                                Dispatched through<br/>
+                                                <strong t-if="o.dispatched_through" t-esc="o.dispatched_through"/>
+                                            </td>
+                                            <td class="item-cell">
+                                                Destination<br/>
+                                                <strong t-if="o.destination" t-esc="o.destination"/>
+                                            </td>
+                                        </tr>
+
+
+                                        <tr>
+                                            <td colspan="2" style="
+                                                border-bottom:0.6px solid #777;
+                                                padding:0;
+                                                height:0;
+                                            "></td>
+                                        </tr>
+
+                                    </table>
+
+                                    <!-- TERMS OF DELIVERY -->
+                                    <div class="cell" style="border-top:0.6px solid #777;">
+                                        Terms of Delivery<br/>
+                                        <strong t-if="o.terms_of_delivery" t-esc="o.terms_of_delivery"/>
+                                    </div>
+
+
+                                </td>
+
+                            </tr>
+
+                        </table>
+
+                        <!-- CALCULATE TAX AMOUNTS -->
+
+                        <!-- GST CALCULATION (PURCHASE ORDER) -->
+                        <t t-set="cgst_amount" t-value="0.0"/>
+                        <t t-set="sgst_amount" t-value="0.0"/>
+                        <t t-set="igst_amount" t-value="0.0"/>
+
+                        <t t-foreach="o.order_line" t-as="line">
+                            <t t-set="taxes"
+                            t-value="line.taxes_id.compute_all(
+                                            line.price_unit,
+                                            o.currency_id,
+                                            line.product_qty,
+                                            product=line.product_id,
+                                            partner=o.partner_id
+                                        )"/>
+
+                            <t t-foreach="taxes['taxes']" t-as="tax">
+                                <t t-set="tax_name" t-value="(tax.get('name') or '').upper()"/>
+
+                                <!-- CGST -->
+                                <t t-if="'CGST' in tax_name">
+                                    <t t-set="cgst_amount" t-value="cgst_amount + tax.get('amount', 0.0)"/>
+                                </t>
+
+                                <!-- SGST -->
+                                <t t-if="'SGST' in tax_name">
+                                    <t t-set="sgst_amount" t-value="sgst_amount + tax.get('amount', 0.0)"/>
+                                </t>
+
+                                <!-- IGST -->
+                                <t t-if="'IGST' in tax_name">
+                                    <t t-set="igst_amount" t-value="igst_amount + tax.get('amount', 0.0)"/>
+                                </t>
+                            </t>
+                        </t>
+
+
+
+
+
+                        <!-- ================= ITEMS TABLE ================= -->
+                        <table style="width:100%; border-collapse:collapse; margin-top:0;">
+
+                            <!-- HEADER -->
+                            <tr>
+                                <th class="cell center" style="width:5%;">Sl<br/>No.</th>
+                                <th class="cell center" style="width:10%;">HSN Code</th>
+                                <th class="cell" style="width:35%;">Description of Goods</th>
+                                <th class="cell center" style="width:12%;">Due on</th>
+                                <th class="cell center" style="width:12%;">Quantity</th>
+                                <th class="cell center" style="width:10%;">Rate</th>
+                                <th class="cell center" style="width:6%;">per</th>
+                                <th class="cell center" style="width:10%;">Amount</th>
+                            </tr>
+
+                            <!-- ROWS -->
+                            <t t-set="slno" t-value="1"/>
+                            <t t-foreach="o.order_line" t-as="line">
+                                <tr>
+                                    <!-- SL NO -->
+                                    <td class="cell center">
+                                        <t t-esc="slno"/>
+                                        <t t-set="slno" t-value="slno + 1"/>
+                                    </td>
+
+                                    <!-- HSN CODE -->
+                                    <td class="cell center">
+                                        <span t-field="line.hsn_code"/>
+                                    </td>
+
+                                    <!-- DESCRIPTION -->
+                                    <td class="cell">
+                                        <strong t-esc="line.name"/>
+                                    </td>
+
+                                    <!-- DUE DATE -->
+                                    <td class="cell center">
+                                        <t t-if="o.date_planned">
+                                            <t t-esc="o.date_planned.strftime('%d-%b-%y')"/>
+                                        </t>
+                                    </td>
+
+                                    <!-- QTY -->
+                                    <td class="cell" style="text-align:right;">
+                                        <strong>
+                                            <t t-esc="line.product_qty"/>
+                                        </strong>
+                                        Nos.
+                                    </td>
+
+                                    <!-- RATE -->
+                                    <td class="cell" style="text-align:right;">
+                                        <t t-esc="line.price_unit"/>
+                                    </td>
+
+                                    <!-- PER -->
+                                    <td class="cell center">
+                                        Nos.
+                                    </td>
+
+                                    <!-- AMOUNT -->
+                                    <td class="cell" style="text-align:right;">
+                                        <t t-esc="line.price_subtotal"/>
+                                    </td>
+                                </tr>    
+                            </t>
+
+
+                            <tr>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell" style="text-align:right;">
+                                    <strong>Total Amount</strong>
+                                </td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell" style="text-align:right;">
+                                    <strong>
+                                        <span t-esc="o.amount_untaxed"
+                                            t-options="{'widget':'monetary','display_currency':o.currency_id}"/>
+                                    </strong>
+                                </td>
+
+                            </tr>
+
+
+                            <!-- <tr>
+                                <td class="cell" style="height:180px;"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                            </tr> -->
+
+                            <tr>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell" style="text-align:right;"><strong>CGST Input</strong></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell" style="text-align:right;">
+                                    <span t-esc="cgst_amount" t-options="{'widget':'monetary','display_currency':o.currency_id}"/>                                </td>
+                            </tr>
+
+
+                            <tr>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell" style="text-align:right;"><strong>SGST Input</strong></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell" style="text-align:right;">
+                                    <span t-esc="sgst_amount" t-options="{'widget':'monetary','display_currency':o.currency_id}"/>
+                                </td>
+                            </tr>
+
+
+                            <tr>
+                            <td class="cell"></td>
+                            <td class="cell"></td>
+                            <td class="cell" style="text-align:right;">
+                                <strong>Round Off</strong>
+                            </td>
+
+                            <td class="cell"></td>
+                            <td class="cell"></td>
+                            <td class="cell"></td>
+                            <td class="cell"></td>
+                            <td class="cell" style="text-align:right;">
+                                <strong>
+                                <span t-esc="cgst_amount + sgst_amount" t-options="{'widget':'monetary','display_currency':o.currency_id}"/>                                </strong>
+                            </td>
+                        </tr>
+
+
+
+
+
+                            <!-- TOTAL ROW -->
+                            <tr>
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell" style="text-align:right;"><strong>Total Taxable Amount</strong></td>
+                                <td class="cell"></td>
+                                <td class="cell" style="text-align:right;">
+                                    <strong>
+                                        <t t-esc="sum(o.order_line.mapped('product_qty'))"/> Nos.
+                                    </strong>
+                                </td>
+                                
+                                <td class="cell"></td>
+                                <td class="cell"></td>
+                                <td class="cell" style="text-align:right;">
+                                    <strong>
+                                        <span t-esc="o.amount_untaxed + cgst_amount + sgst_amount"
+                                            t-options="{'widget':'monetary','display_currency':o.currency_id}"/>
+                                    </strong>
+                                </td>
+                            </tr>
+
+
+                        </table>
+
+
+                        <!-- AMOUNT IN WORDS + E.&O.E + SIGNATURE (OUTER BORDER MATCHES SIGNATURE BOTTOM) -->
+                        <div style="page-break-inside: avoid; page-break-before: auto;">
+                            <table style="width:100%; border-collapse:collapse; margin-top:0;">
+
+                                <!-- ROW 1 -->
+                                <tr>
+                                    <td style="
+                                        width:60%;
+                                        vertical-align:top;
+                                        border-top:0.6px solid #777;
+                                        border-left:0.6px solid #777;
+                                        border-right:none;
+                                        border-bottom:none;
+                                        padding:6px;
+                                    ">
+                                        <strong>Amount Chargeable (in words)</strong>
+                                    </td>
+
+                                    <td style="
+                                        width:40%;
+                                        text-align:right;
+                                        vertical-align:top;
+                                        border-top:0.6px solid #777;
+                                        border-right:0.6px solid #777;
+                                        border-left:none;
+                                        border-bottom:none;
+                                        padding:6px;
+                                    ">
+                                        <em>E. &amp; O.E</em>
+                                    </td>
+                                </tr>
+
+                                <!-- ROW 2 (NO BOTTOM BORDER HERE) -->
+                                <tr>
+                                    <td style="
+                                        vertical-align:top;
+                                        border-left:0.6px solid #777;
+                                        border-right:none;
+                                        border-top:none;
+                                        border-bottom:none;
+                                        padding:6px;
+                                    ">
+                                        <strong>
+                                        <t t-esc="o.currency_id.symbol"/>
+                                        <t t-esc="o.currency_id.amount_to_text(o.amount_total).replace('Rupees','').strip()"/> Only
+                                        </strong>
+
+                                    </td>
+
+                                    <td style="
+                                        border-right:0.6px solid #777;
+                                        border-left:none;
+                                        border-top:none;
+                                        border-bottom:none;
+                                    "></td>
+                                </tr>
+
+
+                                <tr>
+                                    <td style="border-left:0.6px solid #777; padding-top:20px;"></td>
+                                    <td style="border-right:0.6px solid #777; padding-top:20px;"></td>
+                                </tr>
+
+                                
+
+                                <!-- ROW 3 : SIGNATURE (PROVIDES FINAL BOTTOM BORDER) -->
+                                <tr>
+                                    <td style="
+                                        border-left:0.6px solid #777;
+                                        border-top:none;
+                                        border-right:none;
+                                        border-bottom:none;
+                                    "></td>
+                                    <td class="cell" style="text-align:right; vertical-align:bottom; height:10px;">
+                                        <strong>for Duisport Packing Logistics India Pvt. Ltd.</strong><br/><br/><br/>
+                                        Authorised Signatory
+                                    </td>
+                                </tr>
+                                <!-- OUTER BOTTOM BORDER (FULL WIDTH) -->
+                                <tr>
+                                    <td colspan="2" style="
+                                        border-left:0.6px solid #777;
+                                        border-right:0.6px solid #777;
+                                        border-bottom:0.6px solid #777;
+                                        padding:0;
+                                        height:0;
+                                    "></td>
+                                </tr>
+
+
+                            </table>
+                        </div>
+                        <!-- COMPUTER GENERATED NOTE (CENTERED) -->
+                        <div style="
+                            border-left:0.6px solid #777;
+                            border-right:0.6px solid #777;
+                            border-bottom:0.6px solid #777;
+                            padding:8px;
+                            text-align:center;
+                            font-size:13px;
+                            color:#555;
+                        ">
+                            This is a Computer Generated Document
+                        </div>
+
+
+
+
+
+
+                    </div>
+                 
+                </div>
+
+
+              
+
+
+            </t>
+
+
+            <!-- ================= ANNEX-1 PAGE ================= -->
+            <div style="page-break-before: auto; font-size:13px;">
+
+                <!-- <div style="text-align:center; font-weight:bold; font-size:16px; margin-bottom:20px;">
+                    Annex-1<br/>
+                    COMMERCIAL TERMS AND CONDITIONS
+                </div> -->
+
+                <div style="border:0.6px solid #777; padding:12px;">
+                    <t t-if="o.commercial_terms">
+                        <t t-raw="o.commercial_terms"/>
+                    </t>
+                    <t t-else="">
+                        <p>No Commercial Terms &amp; Conditions defined.</p>
+                    </t>
+                </div>
+
+            </div>
+
+
+
+
+        </t>
+    </template>
+
+    <!-- REPORT ACTION -->
+    <record id="action_report_purchase_order_custom" model="ir.actions.report">
+        <field name="name">Purchase Order Report</field>
+        <field name="model">purchase.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">all_reports_full.report_purchase_order_custom</field>
+        <field name="report_file">all_reports_full.report_purchase_order_custom</field>
+        <field name="binding_model_id" ref="purchase.model_purchase_order"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <record id="view_purchase_order_form_preview_download" model="ir.ui.view">
+    <field name="name">purchase.order.form.preview.download</field>
+    <field name="model">purchase.order</field>
+    <field name="inherit_id" ref="purchase.purchase_order_form"/>
+    <field name="arch" type="xml">
+
+        <xpath expr="//div[@name='button_box']" position="inside">
+
+            <!-- <button name="action_preview_purchase_order"
+                    type="object"
+                    icon="fa-eye"
+                    class="oe_stat_button"
+                    string="Preview"/> -->
+
+            <button name="action_download_purchase_order"
+                    type="object"
+                    icon="fa-download"
+                    class="oe_stat_button"
+                    string="Preview"/>
+
+        </xpath>
+
+    </field>
+</record>
+
+
+
+</odoo>

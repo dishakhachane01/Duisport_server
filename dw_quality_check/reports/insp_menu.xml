@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<odoo>
+    <template id="report_qc_dispatcher">
+
+        <t t-foreach="docs" t-as="o">
+
+            <t t-if="o.inspection_type == 'pallet'">
+                <t t-call="dw_quality_check.report_qc_pallet">
+                    <t t-set="docs" t-value="o"/>
+                </t>
+            </t>
+
+            <t t-elif="o.inspection_type == 'wood_pallet'">
+                <t t-call="dw_quality_check.report_qc_wood_pallet">
+                    <t t-set="docs" t-value="o"/>
+                </t>
+            </t>
+
+            <t t-elif="o.inspection_type == 'screw'">
+                <t t-call="dw_quality_check.report_qc_screw">
+                    <t t-set="docs" t-value="o"/>
+                </t>
+            </t>
+
+            <t t-elif="o.inspection_type == 'corrugation'">
+                <t t-call="dw_quality_check.report_qc_corrugation">
+                    <t t-set="docs" t-value="o"/>
+                </t>
+            </t>
+
+            <t t-elif="o.inspection_type == 'metal'">
+                <t t-call="dw_quality_check.report_qc_metal">
+                    <t t-set="docs" t-value="o"/>
+                </t>
+            </t>
+
+            <t t-elif="o.inspection_type == 'angle_board'">
+                <t t-call="dw_quality_check.report_qc_angle_board">
+                    <t t-set="docs" t-value="o"/>
+                </t>
+            </t>
+
+            <t t-elif="o.inspection_type == 'polybag'">
+                <t t-call="dw_quality_check.report_qc_polybag">
+                    <t t-set="docs" t-value="o"/>
+                </t>
+            </t>
+
+            <t t-elif="o.inspection_type == 'pinewood'">
+                <t t-call="dw_quality_check.report_qc_pinewood">
+                    <t t-set="docs" t-value="o"/>
+                </t>
+            </t>
+
+            <t t-else="">
+                <div class="page">
+                    <h3>No Report Template Found</h3>
+                    <p>Inspection Type: <t t-esc="o.inspection_type"/></p>
+                </div>
+            </t>
+
+        </t>
+
+    </template>
+
+    <!-- ======= DISPATCHER REPORT ACTION (single entry point for the button) ======= -->
+    <record id="action_report_qc_dispatcher" model="ir.actions.report">
+        <field name="name">Incoming Inspection Report</field>
+        <field name="model">dw.quality.check</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">dw_quality_check.report_qc_dispatcher</field>
+        <field name="report_file">dw_quality_check.report_qc_dispatcher</field>
+        <field name="binding_model_id" ref="dw_quality_check.model_dw_quality_check"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">'Incoming Inspection - %s' % (object.name or '')</field>
+    </record>
+
+</odoo>

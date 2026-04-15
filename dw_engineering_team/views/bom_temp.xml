@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+        <!-- Custom Paper Format for Landscape A4 -->
+    <record id="paperformat_bom_landscape" model="report.paperformat">
+        <field name="name">BOM Landscape Format</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="page_height">0</field>
+        <field name="page_width">0</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">20</field>
+        <field name="margin_bottom">15</field>
+        <field name="margin_left">10</field>
+        <field name="margin_right">10</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">5</field>
+        <field name="dpi">96</field>
+    </record>
+    <!-- Report Action Definition -->
+    <record id="action_report_packing_cost_sheet" model="ir.actions.report">
+        <field name="name">Packing Cost Sheet</field>
+        <field name="model">packing.cost.sheet</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">dw_engineering_team.report_packing_cost_sheet_template</field>
+        <field name="report_file">dw_engineering_team.report_packing_cost_sheet_template</field>
+        <field name="binding_model_id" ref="model_packing_cost_sheet"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="dw_engineering_team.paperformat_bom_landscape"/>
+    </record>
+
+
+
+    <!-- Report Template -->
+    <template id="report_packing_cost_sheet_template">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs" t-as="o">
+                <div class="page">
+                    
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            font-size: 10pt;
+                        }
+                        
+                        .company-header {
+                            font-size: 14pt;
+                            font-weight: bold;
+                            margin-bottom: 5px;
+                        }
+                        
+                        .company-subheader {
+                            font-size: 11pt;
+                            margin-bottom: 15px;
+                        }
+                        
+                        .bom-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-bottom: 0;
+                            page-break-inside: avoid;
+                        }
+                        
+                        .bom-table td {
+                            border: 1px solid #000;
+                            padding: 6px 8px;
+                            vertical-align: middle;
+                        }
+                        
+                        .header-yellow {
+                            background-color: #FFD966;
+                        }
+                        
+                        .total-gray {
+                            background-color: #D3D3D3;
+                        }
+                        
+                        .text-bold {
+                            font-weight: bold;
+                        }
+                        
+                        . text-right {
+                            text-align: right;
+                        }
+                        
+                        .text-center {
+                            text-align: center;
+                        }
+                        
+                        .text-left {
+                            text-align: left;
+                        }
+                        tr,td{
+                            padding: 5px;
+                        }
+                    </style>
+                    <div> <img src="/dw_engineering_team/static/src/img/header.png" 
+                                 alt="Company Header" 
+                                 style="width: 100%; height: auto; border: 1px solid #000; margin-right:20px;"/>
+                    </div>
+                    <table class="bom-table">
+                        <!-- <tr class="text-center" style="font-size: 16px;"><td colspan="8" class="text-center"><t t-esc="dict(o._fields['bom_type'].selection).get(o.bom_type)"/></td></tr> -->
+                        <!-- Row 1: Part/Reference, Wooden pallet, Dimensions, MOQ -->
+                         <tr class="header-yellow text-bold">
+                            <td style="width: 10%;">BOM reference No</td>
+                            <td colspan="7"><t t-esc="o.sequence_no or ''"/></td>
+                          </tr>  
+                        <tr class="header-yellow text-bold">
+                            <td style="width: 10%;">Part Name</td>
+                            <td style="width: 15%;"><t t-esc="o.part_name or ''"/></td>
+                            <td style="width: 10%;" class="text-center">Length</td>
+                            <td style="width: 10%;" class="text-center">Width</td>
+                            <td style="width: 10%;" class="text-center">Height</td>
+                            <td rowspan="3" class="text-center">
+                                Part Weight=<t t-esc="int(o.part_weight) if o.part_weight else '0'"/> KGS
+                            </td>
+                            <td style="width: 15%;" class="text-center">MOQ</td>
+                            <td style="width: 10%;" class="text-center"><t t-esc="o.moq or ''"/></td>
+                        </tr>
+                        
+                        <!-- Row 2: Values for Part No, Box ID -->
+                        <tr class="header-yellow">
+                            <td rowspan="2" class="text-bold"> <span t-field="o.bom_type"/></td>
+                            <td class="text-bold">Box/Pallet ID</td>
+                            <td class="text-right"><t t-esc="int(o.box_id_l) if o.box_id_l else ''"/></td>
+                            <td class="text-right"><t t-esc="int(o.box_id_w) if o.box_id_w else ''"/></td>
+                            <td class="text-right"><t t-esc="int(o.box_id_h) if o.box_id_h else ''"/></td>
+                            
+                            <td rowspan="2" class="text-right">Empty Box Weight in KG: </td>
+                            <td rowspan="2" class="text-right large-text text-bold">
+                                <t t-esc="'%.2f' % o.empty_box_weight if o.empty_box_weight else '0.00'"/>
+                            </td>
+                        </tr>
+                        
+                        <!-- Row 3: Box OD -->
+                        <tr class="header-yellow">
+                            <td class="text-bold">Box/Pallet OD</td>
+                            <td class="text-right"><t t-esc="int(o.box_od_l) if o.box_od_l else ''"/></td>
+                            <td class="text-right"><t t-esc="int(o.box_od_w) if o.box_od_w else ''"/></td>
+                            <td class="text-right"><t t-esc="int(o.box_od_h) if o.box_od_h else ''"/></td>
+                        </tr>
+                   </table>
+
+
+                    <table>
+                            <colgroup>
+                                <col style="width:15%"/>
+                                <col style="width:15%"/>
+                                <col style="width:15%"/>
+                                <col style="width:15%"/>
+                                <col style="width:15%"/>
+                                <col style="width:5%"/>
+                                <col style="width:5%"/>
+                                <col style="width:15%"/>
+                            </colgroup>
+                        
+                            <!-- Row 4: Column Headers for Details -->
+                            <tr class="header-yellow text-bold text-center">
+                                <td  >Section</td>
+                                <td >Description</td>
+                                <!-- <td></td> -->
+                                <td >Length</td>
+                                <td>Width</td>
+                                <td >Thickness</td>
+                                <td>Qty</td>
+                                <td  >SQFT/CFT</td>
+                                <td >Material</td>
+                                <!-- <td>RM Rate</td>
+                                <td>Amount</td> -->
+                            </tr>
+                   
+
+                            
+                            <!-- BASE Section -->
+                            <t t-set="base_lines" t-value="o.line_ids.filtered(lambda l: l.section == 'base')"/>
+                            <t t-if="base_lines">
+                                <t t-foreach="base_lines" t-as="line">
+                                    <tr>
+                                        <t t-if="line_index == 0">
+                                            <td class="text-bold" t-att-rowspan="len(base_lines)" style="width: 15%;">Base</td>
+                                        </t>
+                                        <!-- style="width: 15%;" -->
+                                        <td  ><t t-esc="line.description.name or ''"/></td>
+                                        <td  class="text-center"><t t-esc="int(line.length) if line.length else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.width) if line.width else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.thickness) if line.thickness else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.qty) if line.qty else ''"/></td>
+                                        <td class="text-center"><t t-esc="'%.2f' % line.sqft if line.sqft else '0.00'"/></td>
+                                    <!-- style="width: 10%;" -->
+                                        <td><t t-esc="line.material_id.name or ''"/></td>
+                                        
+                                    </tr>
+                                </t>
+                            </t>
+
+                            <!-- LONG SIDE Section -->
+                            <t t-set="long_side_lines" t-value="o.line_ids.filtered(lambda l: l.section == 'long_side')"/>
+                            <t t-if="long_side_lines">
+                                <t t-foreach="long_side_lines" t-as="line">
+                                    <tr>
+                                        <t t-if="line_index == 0">
+                                            <td class="text-bold" t-att-rowspan="len(long_side_lines)">Long Side</td>
+                                        </t>
+                                        <td><t t-esc="line.description.name or ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.length) if line.length else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.width) if line.width else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.thickness) if line.thickness else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.qty) if line.qty else ''"/></td>
+                                        <td class="text-center"><t t-esc="'%.2f' % line.sqft if line.sqft else '0.00'"/></td>
+                                        <td><t t-esc="line.material_id.name or ''"/></td>
+                                        <!--   -->
+                                        <!--   -->
+                                    </tr>
+                                </t>
+                            </t>
+
+                            <!-- SHORT SIDE Section -->
+                            <t t-set="short_side_lines" t-value="o.line_ids.filtered(lambda l: l.section == 'short_side')"/>
+                            <t t-if="short_side_lines">
+                                <t t-foreach="short_side_lines" t-as="line">
+                                    <tr>
+                                        <t t-if="line_index == 0">
+                                            <td class="text-bold" t-att-rowspan="len(short_side_lines)">Short Side</td>
+                                        </t>
+                                        <td><t t-esc="line.description.name or ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.length) if line.length else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.width) if line.width else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.thickness) if line.thickness else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.qty) if line.qty else ''"/></td>
+                                        <td class="text-center"><t t-esc="'%.2f' % line.sqft if line.sqft else '0.00'"/></td>
+                                        <td><t t-esc="line.material_id.name or ''"/></td>
+                                        
+                                        
+                                    </tr>
+                                </t>
+                            </t>
+
+                            <!-- TOP SIDE Section -->
+                            <t t-set="top_side_lines" t-value="o.line_ids.filtered(lambda l: l.section == 'top_side')"/>
+                            <t t-if="top_side_lines">
+                                <t t-foreach="top_side_lines" t-as="line">
+                                    <tr>
+                                        <t t-if="line_index == 0">
+                                            <td class="text-bold" t-att-rowspan="len(top_side_lines)">Top Side</td>
+                                        </t>
+                                        <td><t t-esc="line.description.name or ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.length) if line.length else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.width) if line.width else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.thickness) if line.thickness else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.qty) if line.qty else ''"/></td>
+                                        <td class="text-center"><t t-esc="'%.2f' % line.sqft if line.sqft else '0.00'"/></td>
+                                        <td><t t-esc="line.material_id.name or ''"/></td>
+                                        
+                                        
+                                    </tr>
+                                </t>
+                            </t>
+
+                            <!-- LOOSE PLY SHEET Section -->
+                            <t t-set="loose_ply_lines" t-value="o.line_ids.filtered(lambda l: l.section == 'loose_ply_sheet')"/>
+                            <t t-if="loose_ply_lines">
+                                <t t-foreach="loose_ply_lines" t-as="line">
+                                    <tr>
+                                        <t t-if="line_index == 0">
+                                            <td class="text-bold" t-att-rowspan="len(loose_ply_lines)">Loose Ply Sheet</td>
+                                        </t>
+                                        <td><t t-esc="line.description.name or ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.length) if line.length else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.width) if line.width else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.thickness) if line.thickness else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.qty) if line.qty else ''"/></td>
+                                        <td class="text-center"><t t-esc="'%.2f' % line.sqft if line.sqft else '0.00'"/></td>
+                                        <td><t t-esc="line.material_id.name or ''"/></td>
+                                        
+                                        
+                                    </tr>
+                                </t>
+                            </t>
+
+                            <!-- LOOSE PINE SUPPORT Section -->
+                            <t t-set="loose_pine_lines" t-value="o.line_ids.filtered(lambda l: l.section == 'loose_pine_support')"/>
+                            <t t-if="loose_pine_lines">
+                                <t t-foreach="loose_pine_lines" t-as="line">
+                                    <tr>
+                                        <t t-if="line_index == 0">
+                                            <td class="text-bold" t-att-rowspan="len(loose_pine_lines)">Loose Pine Support</td>
+                                        </t>
+                                        <td><t t-esc="line.description.name or ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.length) if line.length else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.width) if line.width else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.thickness) if line.thickness else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.qty) if line.qty else ''"/></td>
+                                        <td class="text-center"><t t-esc="'%.2f' % line.sqft if line.sqft else '0.00'"/></td>
+                                        <td><t t-esc="line.material_id.name or ''"/></td>
+                                        
+                                        
+                                    </tr>
+                                </t>
+                            </t>
+
+                            <!-- CONSUMABLES Section -->
+                            <t t-set="consumable_lines" t-value="o.line_ids.filtered(lambda l: l.section == 'consumables')"/>
+                            <t t-if="consumable_lines">
+                                <t t-foreach="consumable_lines" t-as="line">
+                                    <tr>
+                                        <t t-if="line_index == 0">
+                                            <td class="text-bold" t-att-rowspan="len(consumable_lines)">Consumables</td>
+                                        </t>
+                                        <td><t t-esc="line.description.name or ''"/></td>
+                                        <td class="text-center"><t t-esc="'%.2f' % line.length if line.length else ''"/></td>
+                                        <td class="text-center"><t t-esc="'%.2f' % line.width if line.width else ''"/></td>
+                                        <td class="text-center"><t t-esc="'%.2f' % line.thickness if line.thickness else ''"/></td>
+                                        <td class="text-center"><t t-esc="int(line.qty) if line.qty else ''"/></td>
+                                        <td class="text-center">
+                                            <t t-if="line.sqft"><t t-esc="'%.2f' % line.sqft"/></t>
+                                        
+                                        </td>
+                                        <td><t t-esc="line.material_id.name or ''"/></td>
+                                        
+                                        
+                                    </tr>
+                                </t>
+                            </t>
+                    
+                    </table>
+                    
+
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

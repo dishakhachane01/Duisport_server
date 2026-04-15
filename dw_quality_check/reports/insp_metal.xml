@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- ================= REPORT TEMPLATE ================= -->
+
+    <template id="report_qc_metal">
+
+        <t t-call="web.html_container">
+
+            <meta charset="UTF-8"/>
+
+            <style>
+
+                @page {
+                    size: A4;
+                    margin: 5mm;
+                }
+
+                body {
+                    font-size: 14px;
+                    font-family: Arial, sans-serif;
+                }
+
+                .cell {
+                    border: 1px solid #000;
+                    padding: 6px;
+                    vertical-align: top;
+                }
+
+                .center {
+                    text-align: center;
+                }
+
+                .bold {
+                    font-weight: bold;
+                }
+
+                .header-table {
+                    width: 100%;
+                    border: 1px solid #000;
+                    border-collapse: collapse;
+                }
+
+                .header-cell {
+                    border: 1px solid #000;
+                    padding: 8px;
+                }
+
+            </style>
+
+
+            <t t-foreach="docs" t-as="o">
+
+                <div style="width:100%; height:287mm;">
+
+
+                    <!-- ================= HEADER ================= -->
+
+                    <table class="header-table">
+
+                        <tr>
+
+                            <td class="header-cell center" style="width:20%;">
+
+                                <img t-if="env.company.logo"
+                                     t-att-src="'data:image/png;base64,%s' % env.company.logo.decode()"
+                                     style="max-height:70px;"/>
+
+                            </td>
+
+
+                            <td class="header-cell center" style="width:50%;">
+
+                                <div class="bold">
+                                    DUISPORT PACKING LOGISTICS INDIA PVT LTD.
+                                </div>
+
+                                <div class="bold" style="font-size:16px; margin-top:5px;">
+                                    Incoming Inspection Report
+                                </div>
+
+                                <div class="bold" style="margin-top:5px;">
+                                    Metal
+                                </div>
+
+                            </td>
+
+
+                            <td class="header-cell" style="width:30%;">
+
+                                <div><b>DOC NO :</b> DPLIPL/P/QAD/07</div>
+                                <div style="margin-top:10px;"><b>REV NO :</b> 00</div>
+
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+                    <!-- DETAILS -->
+
+                    <table style="width:100%; border-collapse:collapse;">
+
+                        <tr>
+
+                            <td class="cell" style="width:50%;">
+                                <b>Date :</b>
+                                <t t-esc="o.date.strftime('%d-%m-%Y') if o.date else ''"/>
+                            </td>
+
+                            <td class="cell" style="width:50%;">
+                                <b>Supplier :</b>
+                                <t t-esc="o.supplier_code"/>
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+                    <!-- INSPECTION -->
+
+                    <table style="width:100%; border-collapse:collapse;">
+
+
+                        <tr class="center bold">
+
+                            <td class="cell">S.No</td>
+                            <td class="cell">Parameter</td>
+                            <td class="cell">Specification</td>
+                            <td class="cell">Observation</td>
+
+                        </tr>
+
+
+                        <t t-foreach="o.inspection_lines" t-as="line">
+
+                            <tr>
+
+                                <td class="cell center">
+                                    <t t-esc="line.sequence"/>
+                                </td>
+
+                                <td class="cell">
+                                    <t t-esc="line.parameter"/>
+                                </td>
+
+                                <td class="cell">
+                                    <t t-esc="line.specification"/>
+                                </td>
+
+                                <td class="cell">
+                                    <t t-esc="line.observation"/>
+                                </td>
+
+                            </tr>
+
+                        </t>
+
+                    </table>
+
+
+                    <!-- RESULT -->
+
+                    <table style="width:100%; border-collapse:collapse;">
+
+
+                        <tr>
+
+                            <td class="cell" style="width:50%;">
+                                <b>Qty Accepted :</b>
+                                <t t-esc="o.qty_accepted"/>
+                            </td>
+
+                            <td class="cell" style="width:50%;">
+                                <b>Qty Rejected :</b>
+                                <t t-esc="o.qty_rejected"/>
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+                    <!-- SIGN -->
+
+                    <table style="width:100%; border-collapse:collapse;">
+
+
+                        <tr>
+
+                            <td class="cell center" style="height:70px; width:50%;">
+
+                                <b>INSPECTED BY</b><br/><br/>
+                                <t t-esc="o.inspected_by.name"/>
+
+                            </td>
+
+
+                            <td class="cell center" style="width:50%;">
+
+                                <b>VERIFIED BY</b><br/><br/>
+                                <t t-esc="o.verified_by.name"/>
+
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+                </div>
+
+            </t>
+
+        </t>
+
+    </template>
+
+
+    <!-- ================= REPORT ACTION ================= -->
+
+    <record id="action_report_qc_metal" model="ir.actions.report">
+
+        <field name="name">Incoming Inspection - Metal</field>
+        <field name="model">dw.quality.check</field>
+        <field name="report_type">qweb-pdf</field>
+
+        <field name="report_name">
+            dw_quality_check.report_qc_metal
+        </field>
+
+        <field name="report_file">
+            dw_quality_check.report_qc_metal
+
+        </field>
+
+        <field name="print_report_name">
+            'Metal Inspection - %s' % (object.name or '')
+        </field>
+
+    </record>
+
+</odoo>

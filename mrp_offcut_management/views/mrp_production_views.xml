@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ─── Inherit MRP Production Form: Add smart button + Offcuts tab ── -->
+    <record id="view_mrp_production_form_offcut" model="ir.ui.view">
+        <field name="name">mrp.production.form.offcut</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+
+            <!-- Smart button in the stat buttons area -->
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button type="object"
+                        name="action_view_offcuts"
+                        class="oe_stat_button"
+                        icon="fa-scissors"
+                        invisible="offcut_count == 0">
+                    <field name="offcut_count" widget="statinfo" string="Offcuts"/>
+                </button>
+            </xpath>
+
+            <!-- New tab inside the notebook -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Offcut Entries" name="offcut_tab">
+                    <div class="alert alert-info mb-3" role="alert">
+                        <strong>How it works:</strong> After manufacturing, create an offcut entry
+                        for each raw material where the actual consumption was less than planned.
+                        The leftover (offcut) will be transferred to the store on approval.
+                    </div>
+
+                    <field name="offcut_ids" context="{'default_production_id': active_id}">
+                        <tree>
+                            <field name="name"/>
+                            <field name="store_location_id"/>
+                            <field name="total_offcut_lines" string="Lines"/>
+                            <field name="state" widget="badge"
+                                   decoration-info="state == 'draft'"
+                                   decoration-warning="state == 'submitted'"
+                                   decoration-success="state == 'approved'"/>
+                        </tree>
+                    </field>
+
+                    <group col="2" class="mt-2">
+                        <button string="New Offcut Entry"
+                                type="object"
+                                name="action_view_offcuts"
+                                class="btn-secondary"
+                                context="{'default_production_id': active_id}"/>
+                    </group>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

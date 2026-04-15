@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_dw_quality_check_form" model="ir.ui.view">
+        <field name="name">dw.quality.check.form</field>
+        <field name="model">dw.quality.check</field>
+        <field name="priority" eval="10"/>
+        <field name="arch" type="xml">
+            <form string="Quality Check">
+                <header>
+                    <!-- Hidden fields to satisfy domain evaluation -->
+                    <field name="qc_status" invisible="1"/>
+                    <!-- <field name="inspection_type" invisible="1"/> -->
+
+                    <!-- Statusbar -->
+                    <field name="qc_status"
+                           widget="statusbar"
+                           statusbar_visible="received,returned,done"
+                           statusbar_colors="{'failed':'danger','passed':'success'}"/>
+
+                    <!-- Buttons -->
+                    <button name="action_qc_done"
+                            string="QC Done"
+                            type="object"
+                            class="btn-primary"
+                            invisible="qc_status != 'received'"/>
+
+
+                    <button name="%(dw_quality_check.action_report_qc_dispatcher)d"
+                            string="Print Inspection Report"
+                            type="action"
+                            class="btn-secondary"
+                            groups="dw_quality_check.group_quality_check"
+                            invisible="qc_status != 'done'"/>
+                            
+                </header>
+
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <field name="inspection_type" required="1"/>
+                        <field name="source_reference" readonly="1"/>
+                        <field name="product_id" readonly="1"/>
+                        <field name="quantity" readonly="1"/>
+                        <field name="date"/>
+                        <field name="inspected_by" readonly="1"/>
+                        <field name="approved_by"/>
+                    </group>
+
+                    <notebook>
+                        <page string="Header Details">
+                            <group>
+                                <field name="supplier_code"/>
+                                <field name="material_name"/>
+                                <field name="customer_code"/>
+                                <field name="invoice_no"/>
+                                <field name="invoice_date"/>
+                                <field name="invoice_qty"/>
+                                <field name="sample_qty"/>
+                            </group>
+                        </page>
+
+                        <page string="Inspection Parameters">
+                            <field name="inspection_lines" nolabel="1">
+                                <tree editable="bottom">
+
+                                    <field name="sequence"
+                                        readonly="parent.qc_status == 'done'"/>
+
+                                    <field name="parameter"
+                                        readonly="parent.qc_status == 'done'"/>
+
+                                    <field name="specification"
+                                        readonly="parent.qc_status == 'done'"/>
+
+                                    <field name="measurement_method"
+                                        invisible="parent.inspection_type != 'screw'"
+                                        column_invisible="parent.inspection_type != 'screw'"
+                                        readonly="parent.qc_status == 'done'"/>
+
+                                    <field name="observation"
+                                        readonly="parent.qc_status == 'done'"/>
+
+                                </tree>
+                            </field>
+                        </page>
+
+                        
+                        <page string="QC Laboratory Check"
+                            invisible="inspection_type != 'angle_board'">
+
+                            <field name="lab_lines" nolabel="1">
+                                <tree editable="bottom">
+
+                                    <field name="sequence"/>
+                                    <field name="parameter" readonly="parent.qc_status == 'done'"/>
+                                    <field name="specification" readonly="parent.qc_status == 'done'"/>
+                                    <field name="observation"/>
+
+                                </tree>
+                            </field>
+
+                        </page>
+
+
+                        <page string="Results &amp; Remarks">
+                            <group>
+                                <field name="qty_accepted"/>
+                                <field name="qty_hold"/>
+                                <field name="qty_rejected"/>
+                                <field name="qty_deviated"/>
+                                <field name="deviation_approved_by"/>
+                            </group>
+                            <group>
+                                <field name="reason_non_conformity"/>
+                                <field name="corrective_action"/>
+                                <field name="verification_action"/>
+                            </group>
+                            <group col="4">
+                                <field name="verified_by"/>
+                                <field name="verified_date"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dw_quality_check_tree" model="ir.ui.view">
+        <field name="name">dw.quality.check.tree</field>
+        <field name="model">dw.quality.check</field>
+        <field name="arch" type="xml">
+            <tree string="Quality Checks">
+                <field name="name" readonly="1"/>
+                <field name="source_reference"/>
+                <field name="picking_id"/>
+                <field name="mrp_id"/>
+                <field name="product_id"/>
+                <field name="quantity"/>
+                <field name="passed" readonly="1"/>
+                <field name="date"/>
+                <field name="inspection_type"/>
+                <field name="qc_status"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_dw_quality_check" model="ir.actions.act_window">
+        <field name="name">Quality Checks</field>
+        <field name="res_model">dw.quality.check</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- Menus -->
+    <menuitem id="menu_dw_quality_check_root"
+              name="Quality Control"
+              sequence="14"
+              groups="dw_quality_check.group_quality_check"/>
+
+    <menuitem id="menu_dw_quality_check"
+              name="Quality Checks"
+              parent="menu_dw_quality_check_root"
+              action="action_dw_quality_check"
+              groups="dw_quality_check.group_quality_check"/>
+
+</odoo>

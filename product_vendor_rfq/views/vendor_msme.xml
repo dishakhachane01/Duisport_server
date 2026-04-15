@@ -1,0 +1,81 @@
+<odoo>
+
+    <!-- ===============================
+         MSME TAB IN PARTNER FORM
+    ================================= -->
+<record id="view_partner_form_msme" model="ir.ui.view">
+    <field name="name">res.partner.form.msme</field>
+    <field name="model">res.partner</field>
+    <field name="inherit_id" ref="base.view_partner_form"/>
+    <field name="arch" type="xml">
+
+        <xpath expr="//sheet/notebook" position="inside">
+
+            <!-- ADD THIS FIELD (required for modifier) -->
+            <field name="supplier_rank" invisible="1"/>
+
+            <page string="MSME Details"
+                  invisible="supplier_rank == 0">
+
+                <group>
+                    <field name="is_msme"/>
+                    <field name="udyam_number"/>
+                </group>
+
+            </page>
+        </xpath>
+
+    </field>
+</record>
+
+
+    <!-- ===============================
+         WINDOW ACTION (FILTER MSME VENDORS)
+    ================================= -->
+    <record id="action_msme_vendor_list" model="ir.actions.act_window">
+        <field name="name">MSME Vendors</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">
+            [('supplier_rank','>',0),('is_msme','=',True)]
+        </field>
+    </record>
+
+
+    <!-- ===============================
+         SERVER ACTION (DOWNLOAD EXCEL)
+    ================================= -->
+    <record id="action_download_msme_excel" model="ir.actions.server">
+        <field name="name">Download MSME Excel</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="state">code</field>
+        <field name="code">
+action = model.action_download_msme_list()
+        </field>
+    </record>
+
+
+    <!-- ===============================
+         MENU
+    ================================= -->
+    <!-- <menuitem id="menu_msme_vendors"
+              name="MSME Vendors"
+              parent="account.menu_finance_entries"
+              action="action_msme_vendor_list"
+              sequence="35"/> -->
+
+    <menuitem id="menu_msme_download"
+              name="Download Excel"
+              parent="account.menu_finance_entries"
+              action="action_download_msme_excel"
+              sequence="1"/>
+
+
+     <menuitem id="menu_msme_download"
+              name="MSME VVendor list(PDF)"
+              parent="account.menu_finance_entries"
+              action="action_report_msme_vendors"
+              sequence="1"/>
+
+             
+</odoo>

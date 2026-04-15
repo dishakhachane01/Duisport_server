@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_packing_cost_sheet_form" model="ir.ui.view">
+        <field name="name">packing.cost.sheet.form</field>
+        <field name="model">packing.cost.sheet</field>
+        <field name="arch" type="xml">
+            <form string="Packing Cost Sheet">
+            <field name="is_locked" invisible="1"/>
+                <sheet>
+                    <!-- <div class="alert alert-warning" role="alert" invisible="state != 'revision'">
+    <strong>QC Remarks: </strong>
+    <field name="qc_remark" readonly="1" nolabel="1"/>
+</div> -->
+                    <header>
+                     <button name="action_recalculate_dimensions" 
+                                string="Recalculate Dimensions" 
+                                type="object" 
+                                class="btn-primary"
+                                  invisible="is_locked"
+                                 groups="dw_engineering_product.group_engineering_person"/>
+
+                    <button name="action_lock_bom"
+                        string="🔒 Lock BOM"
+                        type="object"
+                        class="btn-warning"
+                        invisible="is_locked"
+                        confirm="Lock this BOM? No further revisions will be possible."
+                        groups="dw_engineering_product.group_engineering_person"
+                    />
+
+                    <button name="action_unlock_bom"
+                        string="🔓 Unlock BOM"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="not is_locked"
+                        confirm="Unlock this BOM to allow new revisions?"
+                        groups="dw_engineering_product.group_engineering_person"
+                    />
+
+                    <button name="action_create_revision"
+                        string="Create Revision"
+                        type="object"
+                        invisible="is_locked"
+                        groups="dw_engineering_product.group_engineering_person"
+                    />
+                       
+
+                        <!-- <button name="action_create_revision"
+                                string="Create Revision"
+                                type="object"
+                                groups="dw_engineering_product.group_engineering_team"
+                                class="oe_highlight"
+                               /> -->
+
+                        <button name="action_view_revisions"
+                                string="View All Revisions"
+                                type="object"
+                                class="btn-secondary"
+/>
+                    </header>
+<!-- 
+                    <div class="oe_title">
+                        <h1>
+                            <field name="sequence_no" readonly="1"/>
+                            <span invisible="revision_no == 0"> / Rev-</span>
+                            <field name="revision_no" readonly="1" class="oe_inline" invisible="revision_no == 0"/>
+                        </h1>
+                    </div> -->
+                    <div class="oe_title">
+                        <h1>
+                            <field name="display_sequence" string="Sequence Number" readonly="1"/>
+                        </h1>
+                    </div>
+                        <div class="alert alert-warning mb-0" role="alert"
+             invisible="not is_locked">
+            <strong>🔒 This BOM is locked.</strong> No fields can be edited.
+        </div>
+
+
+                    <!-- HEADER -->
+                    <group col="4" readonly="is_locked">
+                        <!-- <field name="ref"/> -->
+                        <field name="reference_bom_id"/>
+                        <field name="part_name"/>
+                        <field name="part_weight"/>
+                        <field name="moq"/>
+                        <field name="empty_box_weight"/>
+                        <field name="parent_id" invisible="1"/>
+                        <field name="bom_type"/>
+                    </group>
+                    
+                    <separator string="Dimension"/>
+
+                    <table class="o_list_view table table-bordered" style="width:650px;" readonly="is_locked">
+                        <thead>
+                            <tr>
+                                <th>Sizes</th>
+                                <th>Length</th>
+                                <th>Width</th>
+                                <th>Height</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr invisible="bom_type in ('pinewood_pallet','pinewood_plywood')">
+                                <td invisible="bom_type in ('pinewood_pallet','pinewood_plywood')"><strong>Box/Pallet ID</strong></td>
+                                <td><field name="box_id_l" nolabel="1" readonly="is_locked"  invisible="bom_type in ('pinewood_pallet','pinewood_plywood')"/></td>
+                                <td><field name="box_id_w" nolabel="1" readonly="is_locked"  invisible="bom_type in ('pinewood_pallet','pinewood_plywood')"/></td>
+                                <td><field name="box_id_h" nolabel="1" readonly="is_locked"  invisible="bom_type in ('pinewood_pallet','pinewood_plywood')"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Box/Pallet OD</strong></td>
+                                <td><field name="box_od_l" readonly="is_locked" nolabel="1"/></td>
+                                <td><field name="box_od_w" readonly="is_locked" nolabel="1"/></td>
+                                <td><field name="box_od_h" readonly="is_locked" nolabel="1"/></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <notebook>
+                        <!-- COST DETAILS -->
+                         
+                        <!-- 🔵 NORMAL BOM PAGE -->
+                        <page string="Material Details"
+                            invisible="bom_type == 'ch_box'">
+
+                            <field name="line_ids" readonly="is_locked">
+                                <tree editable="bottom">
+                                    <field name="section"/>
+                                    <field name="description"/>
+                                    <field name="length"/>
+                                    <field name="width"/>
+                                    <field name="thickness"/>
+                                    <field name="qty"/>
+                                    <field name="sqft" readonly="1"/>
+                                    <field name="material_id"/>
+                                    <field name="rm_rate" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                                    <field name="amount" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                                </tree>
+                            </field>
+
+                        </page>
+
+
+                        <!-- 🟢 CH BOX PAGE -->
+                        <page string="CH Box Details"
+                            invisible="bom_type != 'ch_box'">
+
+                            <field name="line_ids" readonly="is_locked">
+                                <tree editable="bottom">
+                                    <field name="sr_no"/>
+                                    <field name="box_type"/>
+                                    <field name="length"/>
+                                    <field name="width"/>
+                                    <field name="height"/>
+                                    <field name="no_of_ply"/>
+                                    <field name="board_gsm"/>
+                                    <field name="deckle"/>
+                                    <field name="cl"/>
+                                    <field name="weight_kg"/>
+                                    <field name="sqm"/>
+                                </tree>
+                            </field>
+
+                        </page>
+                        <!-- <page string="Cost Details">
+                            <field name="line_ids">
+                                <tree editable="bottom">
+                                    <field name="sheet_id" invisible="1"/>
+                                    <field name="section" invisible="sheet_id.bom_type == 'ch_box'"/>
+                                    <field name="description"  invisible="sheet_id.bom_type == 'ch_box'" domain="[('section', '=', section)]"/>
+                                    <field name="length"/>
+                                    <field name="width"/>
+                                    <field name="thickness"  invisible="sheet_id.bom_type == 'ch_box'"/>
+                                    <field name="qty"  invisible="sheet_id.bom_type == 'ch_box'"/>
+                                    <field name="sqft" readonly="1"/>
+                                    <field name="material_id"  invisible="sheet_id.bom_type == 'ch_box'"/>
+                                    <field name="rm_rate" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                                    <field name="amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                                    <field name="sr_no" invisible="sheet_id.bom_type != 'ch_box'"/>
+                                    <field name="box_type" invisible="sheet_id.bom_type != 'ch_box'"/>
+                                    <field name="height" invisible="sheet_id.bom_type != 'ch_box'"/>
+                                    <field name="no_of_ply" invisible="sheet_id.bom_type != 'ch_box'"/>
+                                    <field name="board_gsm" invisible="sheet_id.bom_type != 'ch_box'"/>
+                                    <field name="deckle" invisible="sheet_id.bom_type != 'ch_box'"/>
+                                    <field name="cl" invisible="sheet_id.bom_type != 'ch_box'"/>
+                                    <field name="weight_kg" invisible="sheet_id.bom_type != 'ch_box'"/>
+                                    <field name="sqm" invisible="sheet_id.bom_type != 'ch_box'"/>
+                                    <field name="box_rate" invisible="sheet_id.bom_type != 'ch_box'"/>
+                                </tree>
+                            </field>
+                        </page> -->
+
+                        <!-- SUMMARY -->
+                        <page string="Summary">
+                            <group col="10">
+                                <field name="currency_id" invisible="1"/>
+                                <field name="total_sqft" readonly="1"/>
+                                <field name="total_cft" readonly="1"/>
+                                <field name="material_total" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                                <field name="mfg_percent" widget="percentage" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                                <field name="mfg_amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                                <field name="overhead_percent" widget="percentage" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                                <field name="overhead_amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                                <field name="profit_percent" widget="percentage" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                                <field name="profit_amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                                <field name="packing_charges" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                                <field name="freight" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                                  <field name="discount_percent" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                                <field name="discount_amount" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                                <field name="grand_total" readonly="1"
+                                       class="oe_highlight" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            </group>
+                        </page>
+
+                        <!-- REVISIONS TAB -->
+                        <page string="Revisions" groups="dw_engineering_product.group_engineering_team">
+                            <field name="child_ids" readonly="1">
+                                <tree>
+                                    <field name="sequence_no"/>
+                                    <field name="revision_no"/>
+                                    <field name="ref"/>   
+                                    <field name="part_name"/>
+                                    <field name="create_date"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="QC Revision History"
+                            invisible="not revision_history_ids">
+                            <field name="revision_history_ids" readonly="1">
+                                <tree decoration-danger="status == 'pending'"
+                                    decoration-success="status == 'resolved'"
+                                    create="false" delete="false" editable="false">
+                                    <field name="date"/>
+                                    <field name="requested_by"/>
+                                    <field name="revision_no" string="Rev No"/>
+                                    <field name="remark"/>
+                                    <field name ="attachment"/>
+                                    <field name="status" widget="badge"
+                                        decoration-danger="status == 'pending'"
+                                        decoration-success="status == 'resolved'"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_packing_cost_sheet_tree" model="ir.ui.view">
+        <field name="name">packing.cost.sheet.tree</field>
+        <field name="model">packing.cost.sheet</field>
+        <field name="arch" type="xml">
+            <tree string="Packing Cost Sheet">
+                <!-- <field name="sequence_no"/>-->
+                
+                <field name="display_sequence"/>
+                 <!-- <field name="highest_revision" string="Revision No"/> -->
+                <field name="ref"/>
+                <field name="part_name"/>
+                <field name="part_weight"/>
+                <field name="moq"/>
+                <field name="empty_box_weight"/>
+                        <field name="bom_type"/>
+
+                <!-- <field name="parent_id" invisible="1"/> -->
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_packing_cost_revision_wizard_form" model="ir.ui.view">
+        <field name="name">packing.cost.revision.wizard.form</field>
+        <field name="model">packing.cost.revision.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Request Revision">
+                <sheet>
+                    <group>
+                        <field name="sheet_id" readonly="1"/>
+                        <field name="remark" placeholder="Describe what needs to be corrected…"/>
+                        <field name="attachment"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_revision"
+                            string="Send Back to Engineering"
+                            type="object"
+                            class="btn-danger"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record id="action_packing_cost_revision_wizard" model="ir.actions.act_window">
+    <field name="name">Request Revision</field>
+    <field name="res_model">packing.cost.revision.wizard</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+</record>
+
+
+
+<!-- 
+<record id="action_packing_cost_sheet_quality_check" model="ir.actions.act_window">
+    <field name="name">Quality Check BOMs</field>
+    <field name="res_model">packing.cost.sheet</field>
+    <field name="view_mode">tree,form</field>
+    <field name="domain">[('state', '=', 'quality_check')]</field>
+    <field name="context">{'default_state': 'quality_check'}</field>
+    <field name="help" type="html">
+        <p class="o_view_nocontent_smiling_face">
+            No BOMs pending Quality Check.
+        </p>
+    </field>
+</record> -->
+
+
+
+    <!-- ================= ACTION ================= -->
+    <!-- <record id="action_bom" model="ir.actions.act_window">
+        <field name="name">Bill Of Material</field>
+        <field name="res_model">packing.cost.sheet</field>
+        <field name="view_mode">tree,form</field>
+    </record> -->
+
+    <record id="action_bom_all_revisions" model="ir.actions.act_window">
+        <field name="name">BOMs</field>
+        <field name="res_model">packing.cost.sheet</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_bom"
+              name="BOM"
+              parent="menu_engineering_root"/>
+              
+    <!-- <menuitem id="menu_bom_form"
+              name="BOM"
+              parent="menu_bom"
+              action="action_bom"/> -->
+              
+    <menuitem id="menu_bom_all"
+              name="All BOMs"
+              parent="menu_bom"
+              action="action_bom_all_revisions"
+              groups="dw_engineering_product.group_engineering_team"/>
+<!-- 
+    <menuitem id="menu_packing_cost_quality"
+          name="Quality Check"
+          sequence="20"
+          parent="menu_engineering_root"
+          groups="dw_engineering_team.group_packing_quality_team"/>
+    
+    <menuitem id="menu_packing_cost_quality_check"
+          name="Pending Quality Check"
+          parent="menu_packing_cost_quality"
+          action="action_packing_cost_sheet_quality_check"
+          sequence="10"
+          groups="dw_engineering_team.group_packing_quality_team"/> -->
+
+
+              
+</odoo>

@@ -1,0 +1,4193 @@
+from odoo import models, fields, api
+import re
+
+class PackingCostSheet(models.Model):
+    _name = 'packing.cost.sheet'
+    _description = 'Packing Cost Sheet'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _rec_name = 'sequence_no'
+
+
+    sequence_no = fields.Char(
+        string="Packing Cost Sheet No",
+        readonly=True,
+        copy=False,
+        index=True,
+        default='New'
+    )
+
+    revision_no = fields.Integer(
+        string="Revision No",
+        default=0,
+        tracking=True
+    )
+
+    name = fields.Char(
+        string="Revision",
+        compute="_compute_revision_name",
+        store=True,
+        tracking=True
+    )
+
+    revision_ids = fields.One2many(
+        'packing.cost.sheet.revision',
+        'sheet_id',
+        string="Revision History",
+        readonly=True
+    )
+
+    active_revision_id = fields.Many2one(
+        'packing.cost.sheet.revision',
+        string="Current Revision",
+        readonly=True
+    )
+
+
+    lead_id = fields.Many2one(
+        'crm.lead',
+        string="CRM Lead",
+        ondelete='cascade',
+        index=True
+    )
+
+    engineering_id = fields.Many2one(
+        'engineering.team',
+        string="Engineering Reference",
+        ondelete='cascade',
+        readonly=True
+    )
+
+ 
+    # HEADER DETAILS
+ 
+    ref = fields.Char(string="Reference", required=True)
+    part_name= fields.Char(string="Part Name", required=True)
+    # box_type = fields.Char(string="Box Type")
+    box_id_l = fields.Float(string='Length')
+    box_id_w = fields.Float(string='Width')
+    box_id_h = fields.Float(string='Height')
+
+    box_od_l = fields.Float(string='Length', compute="_compute_box_od_l")
+    box_od_w = fields.Float(string='Width', compute="_compute_box_od_w")
+    box_od_h = fields.Float(string='Height', compute="_compute_box_od_h")
+
+    part_weight = fields.Float("Part Weight (KGS)")
+    empty_box_weight = fields.Float("Empty Box Weight (KGS)" , compute="_compute_empty_box_weight")
+    moq = fields.Integer("MOQ")
+
+ 
+    # COST LINES
+ 
+    line_ids = fields.One2many(
+        'packing.cost.line',
+        'sheet_id',
+        string="Cost Details"
+    )
+
+ 
+    # TOTALS
+ 
+    total_sqft = fields.Float(compute="_compute_totals", store=True)
+    total_cft = fields.Float(compute="_compute_totals", store=True)
+    material_total = fields.Float(compute="_compute_totals", store=True)
+
+    mfg_percent = fields.Float(default=5.0)
+    overhead_percent = fields.Float(default=5.0)
+    profit_percent = fields.Float(default=30.0)
+
+    mfg_amount = fields.Float(compute="_compute_totals", store=True)
+    overhead_amount = fields.Float(compute="_compute_totals", store=True)
+    profit_amount = fields.Float(compute="_compute_totals", store=True)
+
+    freight = fields.Float(default=0.0)
+    packing_charges = fields.Float(default=0.0)
+
+    grand_total = fields.Float(compute="_compute_totals", store=True)
+
+
+    is_locked = fields.Boolean(
+        compute="_compute_is_locked",
+        store=False
+    )
+
+    @api.depends('active_revision_id')
+    def _compute_is_locked(self):
+        for rec in self:
+            rec.is_locked = bool(rec.active_revision_id)
+ 
+    # COMPUTATIONS
+    @api.model
+    def create(self, vals):
+        if vals.get('sequence_no', 'New') == 'New':
+            vals['sequence_no'] = self.env['ir.sequence'].next_by_code(
+                'packing.cost.sheet'
+            ) or 'New'
+        return super().create(vals)
+
+
+
+    # --------------------
+    # REVISION SNAPSHOT
+    # --------------------
+    @api.depends('sequence_no', 'revision_no')
+    def _compute_revision_name(self):
+        for rec in self:
+            rec.name = f"{rec.sequence_no} / Rev-{rec.revision_no}"
+
+
+
+
+    # def action_create_revision(self):
+    #     for sheet in self:
+    #         new_rev_no = sheet.revision_no + 1
+
+    #         revision = self.env['packing.cost.sheet.revision'].create({
+    #             'sheet_id': sheet.id,
+    #             'revision_no': new_rev_no,
+    #             'revision_name': f"Rev-{new_rev_no}",
+    #         })
+
+    #         for line in sheet.line_ids:
+    #             self.env['packing.cost.sheet.revision.line'].create({
+    #                 'revision_id': revision.id,
+    #                 'section': line.section,
+    #                 'description': line.description.id,
+    #                 'length': line.length,
+    #                 'width': line.width,
+    #                 'thickness': line.thickness,
+    #                 'qty': line.qty,
+    #                 'sqft': line.sqft,
+    #                 'material': line.material.id,
+    #                 'rm_rate': line.rm_rate,
+    #                 'amount': line.amount,
+    #             })
+
+    #         sheet.write({
+    #             'revision_no': new_rev_no,
+    #             'active_revision_id': revision.id,
+    #         })
+
+
+
+    def action_create_revision(self):
+        for sheet in self:
+            new_rev_no = sheet.revision_no + 1
+
+            # 1️⃣ Create revision from CURRENT working copy
+            revision = self.env['packing.cost.sheet.revision'].create({
+                'sheet_id': sheet.id,
+                'revision_no': new_rev_no,
+                'revision_name': f"Rev-{new_rev_no}",
+            })
+
+            # 2️⃣ Copy CURRENT lines (edited state)
+            for line in sheet.line_ids:
+                self.env['packing.cost.sheet.revision.line'].create({
+                    'revision_id': revision.id,
+                    'section': line.section,
+                    'description': line.description.id,
+                    'length': line.length,
+                    'width': line.width,
+                    'thickness': line.thickness,
+                    'qty': line.qty,
+                    'sqft': line.sqft,
+                    'material': line.material.id,
+                    'rm_rate': line.rm_rate,
+                    'amount': line.amount,
+                })
+
+            # 3️⃣ Update revision pointer ONLY
+            sheet.write({
+                'revision_no': new_rev_no,
+                'active_revision_id': revision.id,
+            })
+
+
+
+
+
+    def _create_revision_snapshot(self):
+        for sheet in self:
+            new_rev_no = sheet.revision_no + 1
+
+            revision = self.env['packing.cost.sheet.revision'].create({
+                'sheet_id': sheet.id,
+                'revision_no': new_rev_no,
+                'revision_name': f"Rev-{new_rev_no}",
+            })
+
+            for line in sheet.line_ids:
+                self.env['packing.cost.sheet.revision.line'].create({
+                    'revision_id': revision.id,
+                    'section': line.section,
+                    'description': line.description.id,
+                    'length': line.length,
+                    'width': line.width,
+                    'thickness': line.thickness,
+                    'qty': line.qty,
+                    'sqft': line.sqft,
+                    'material': line.material.id,
+                    'rm_rate': line.rm_rate,
+                    'amount': line.amount,
+                })
+
+            sheet.revision_no = new_rev_no
+            sheet.active_revision_id = revision.id
+
+
+    def action_view_revision(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Revision Details',
+            'res_model': 'packing.cost.sheet.revision',
+            'view_mode': 'tree,form',
+            'domain': [('sheet_id', '=', self.id)],
+        }
+
+
+
+    @api.depends('box_id_l')
+    def _compute_box_od_l(self):
+        for record in self:
+            record.box_od_l = record.box_id_l
+
+    @api.depends('box_id_w')
+    def _compute_box_od_w(self):
+        for record in self:
+            record.box_od_w = record.box_id_w
+
+    @api.depends('box_id_h')
+    def _compute_box_od_h(self):
+        for record in self:
+            record.box_od_h = record.box_id_h 
+
+
+
+    @api.depends(
+        'line_ids.amount',
+        'line_ids.sqft',
+        
+        'mfg_percent',
+        'overhead_percent',
+        'profit_percent',
+        'freight',
+        'packing_charges'
+    )
+    def _compute_totals(self):
+        for rec in self:
+            rec.material_total = sum(rec.line_ids.mapped('amount'))
+            rec.total_sqft = sum(rec.line_ids.mapped('sqft'))
+           
+
+            rec.mfg_amount = rec.material_total * rec.mfg_percent / 100
+            rec.overhead_amount = rec.material_total * rec.overhead_percent / 100
+            rec.profit_amount = rec.material_total * rec.profit_percent / 100
+
+            rec.grand_total = (
+                rec.material_total
+                + rec.mfg_amount
+                + rec.overhead_amount
+                + rec.profit_amount
+                + rec.freight
+                + rec.packing_charges
+            )
+
+
+    @api.depends('total_cft','total_sqft')
+    def _compute_empty_box_weight(self):
+        for record in self:
+            record.empty_box_weight = (((record.total_cft*17)+(record.total_sqft*0.6))+20)
+
+
+class PackingCostLine(models.Model):
+    _name = 'packing.cost.line'
+    _description = 'Packing Cost Line'
+
+    sheet_id = fields.Many2one(
+        'packing.cost.sheet',
+        ondelete='cascade'
+    )
+
+    section = fields.Selection([
+        ('base', 'Base'),
+        ('long_side', 'Long Side'),
+        ('short_side', 'Short Side'),
+        ('top_side','Top Side'),
+        ('loose_pine_support','Loose Pine Support'),
+        ('consumables','Consumables')
+    ], string="Section")
+
+    description = fields.Many2one('description.master', string="Description")
+
+    length = fields.Float("Length")
+    width = fields.Float("Width")
+    thickness = fields.Float("Thickness")
+    qty = fields.Float("Qty")
+
+    sqft = fields.Float("SQFT/CFT", compute="_compute_area", store=True)
+    # cft = fields.Float("CFT", compute="_compute_area", store=True)
+
+    material = fields.Many2one('material.master',string="Material")
+    rm_rate = fields.Float("RM Rate")
+    amount = fields.Float("Amount", compute="_compute_amount", store=True)
+
+    def _normalize_material_name(self, name):
+        if not name:
+            return ''
+        return re.sub(r'[^a-z0-9]', '', name.lower())
+
+
+    @api.depends('length', 'width', 'thickness', 'qty', 'material')
+    def _compute_area(self):
+        for line in self:
+            line.sqft = 0.0
+
+            # ---------- HARD SAFETY ----------
+            if not line.material:
+                continue
+            if not line.length or not line.width:
+                continue
+            if not line.qty or line.qty <= 0:
+                continue
+
+            mat_name = self._normalize_material_name(line.material.name)
+
+            # ---------- PINEWOOD ----------
+            if 'pinewood' in mat_name:
+                if not line.thickness:
+                    continue
+                line.sqft = (
+                    (line.length * line.width * line.thickness)
+                    / (305 *305 *305)* (line.qty / 0.95))
+
+            # ---------- PLYWOOD ----------
+            elif 'plywood' in mat_name:
+                line.sqft = (
+                    (line.length / 1000)* (line.width / 1000) * line.qty / 0.95 * 10.764)
+
+            # ---------- HDPE / VCI / MICRON / METER ----------
+            elif any(k in mat_name for k in ['hdpe', 'vci', 'micron', 'meter']):
+                if not line.thickness:
+                    continue
+                line.sqft = (
+                    (
+                        (2 * line.length * line.width)
+                        + (2 * line.length * line.thickness)
+                        + (2 * line.width * line.thickness)
+                    )
+                    * line.qty
+                )
+
+
+
+
+
+
+
+    @api.depends('sqft', 'rm_rate')
+    def _compute_amount(self):
+        for line in self:
+            line.amount = line.sqft * line.rm_rate
+
+    # @api.onchange('section')
+    # def _onchange_section_description(self):
+    #     if self.section:
+    #         return {
+    #             'domain': {
+    #                 'description': [('section', '=', self.section)]
+    #             }
+    #         }
+    #     else:
+    #         return {
+    #             'domain': {
+    #                 'description': []
+    #             }
+    #         }
+
+
+
+
+
+
+
+
+
+
+class MaterialMaster(models.Model):
+    _name = 'material.master'
+    _description = 'Material Master'
+    _rec_name = 'name'
+
+    name = fields.Char(
+        string="Material Name",
+        required=True
+    )
+
+
+class DescriptionlMaster(models.Model):
+    _name = 'description.master'
+    _description = 'Description Master'
+    _rec_name = 'name'
+
+    name = fields.Char(
+        string="Description Name",
+        required=True
+    )
+    section = fields.Selection([
+        ('base', 'Base'),
+        ('long_side', 'Long Side'),
+        ('short_side', 'Short Side'),
+        ('top_side','Top Side'),
+        ('loose_pine_support','Loose Pine Support'),
+        ('consumables','Consumables')
+    ], string="Section")
+
+
+class PackingCostSheetRevision(models.Model):
+    _name = 'packing.cost.sheet.revision'
+    _description = 'Packing Cost Sheet Revision'
+    _order = 'revision_no desc'
+    _rec_name = 'revision_name'
+
+    sheet_id = fields.Many2one('packing.cost.sheet', ondelete='cascade')
+    revision_no = fields.Integer(required=True)
+    revision_name = fields.Char(required=True)
+    revision_date = fields.Datetime(default=fields.Datetime.now, readonly=True)
+
+    line_ids = fields.One2many(
+        'packing.cost.sheet.revision.line',
+        'revision_id',
+        readonly=True
+    )
+
+
+class PackingCostSheetRevisionLine(models.Model):
+    _name = 'packing.cost.sheet.revision.line'
+    _description = 'Packing Cost Sheet Revision Line'
+
+    revision_id = fields.Many2one(
+        'packing.cost.sheet.revision',
+        string='Revision',
+        ondelete='cascade'
+    )
+
+    section = fields.Selection([
+        ('base', 'Base'),
+        ('long_side', 'Long Side'),
+        ('short_side', 'Short Side'),
+        ('top_side', 'Top Side'),
+        ('loose_pine_support', 'Loose Pine Support'),
+        ('consumables', 'Consumables')
+    ])
+
+    description = fields.Many2one('description.master')
+    length = fields.Float()
+    width = fields.Float()
+    thickness = fields.Float()
+    qty = fields.Float()
+    sqft = fields.Float()
+    material = fields.Many2one('material.master')
+    rm_rate = fields.Float()
+    amount = fields.Float()
+
+
+
+
+
+
+
+
+
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<record id="view_packing_cost_sheet_form" model="ir.ui.view">
+    <field name="name">packing.cost.sheet.form</field>
+    <field name="model">packing.cost.sheet</field>
+    <field name="arch" type="xml">
+        <form string="Packing Cost Sheet">
+            <sheet>
+                <header>
+                        <button name="action_create_revision"
+                                string="Create Revision"
+                                type="object"
+                                class="oe_highlight"/>                           
+                               <button name="action_view_revision"
+                                string="View Revisions"
+                                type="object"
+                                class="btn-secondary"/>
+                    </header>
+                     <!-- groups="dw_engineering_product.group_engineering_team" -->
+                
+                    <div class="oe_title">
+                        <h1>
+                            <field name="sequence_no" readonly="1"/>
+                        </h1>
+                    </div>
+
+                <!-- HEADER -->
+                <group col="4">
+                    <field name="ref"/>
+                    <field name="part_name"/>
+                    <!-- <field name="box_type"/> -->
+                    <field name="part_weight"/>
+                    <field name="moq"/>
+                    <field name="empty_box_weight"/>
+                    </group>
+                    <separator string="Dimension"/>
+
+                                    <table class="o_list_view table table-bordered" style="width:650px;">
+                                        <thead>
+                                            <tr>
+                                                <th>Sizes</th>
+                                                <th>Length</th>
+                                                <th>Width</th>
+                                                <th>Height</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Box ID</strong></td>
+                                                <td><field name="box_id_l" nolabel="1"/></td>
+                                                <td><field name="box_id_w" nolabel="1"/></td>
+                                                <td><field name="box_id_h" nolabel="1"/></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Box OD</strong></td>
+                                                <td><field name="box_od_l" nolabel="1"/></td>
+                                                <td><field name="box_od_w" nolabel="1"/></td>
+                                                <td><field name="box_od_h" nolabel="1"/></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                
+
+                <notebook>
+
+                    <!-- COST DETAILS -->
+                    <page string="Cost Details">
+                        <field name="line_ids">
+                            <tree editable="bottom">
+                                <field name="section"/>
+                                <field name="description" domain="[('section', '=', section)]"/>
+                                <field name="length"/>
+                                <field name="width"/>
+                                <field name="thickness"/>
+                                <field name="qty"/>
+                                <field name="sqft" readonly="1"/>
+                                <!-- <field name="cft" readonly="1"/> -->
+                                <field name="material"/>
+                                <field name="rm_rate" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                                <field name="amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            </tree>
+                        </field>
+                    </page>
+
+                    <!-- SUMMARY -->
+                    <page string="Summary">
+                        <group col="4">
+                            <field name="total_sqft" readonly="1"/>
+                            <field name="total_cft" readonly="1"/>
+                            <field name="material_total" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                            <field name="mfg_percent" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            <field name="mfg_amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                            <field name="overhead_percent" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            <field name="overhead_amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                            <field name="profit_percent" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            <field name="profit_amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                            <field name="packing_charges" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            <field name="freight" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                            <field name="grand_total" readonly="1"
+                                   class="oe_highlight" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                        </group>
+                    </page>
+
+
+                     <page string="Revisions">
+                            <field name="revision_ids" readonly="1">
+                                <tree>
+                                    <field name="revision_name"/>
+                                    <field name="revision_date"/>
+                                </tree>
+                            </field>
+                        </page>
+
+
+                </notebook>
+            </sheet>
+            <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+        </form>
+    </field>
+</record>
+
+<record id="view_packing_cost_sheet_tree" model="ir.ui.view">
+    <field name="name">packing.cost.sheet.tree</field>
+    <field name="model">packing.cost.sheet</field>
+    <field name="arch" type="xml">
+        <tree string="Packing Cost Sheet">
+                    <field name="sequence_no" />
+                    <field name="ref"/>
+                    <field name="part_name"/>
+                    <!-- <field name="box_type"/> -->
+                    <field name="part_weight"/>
+                    <field name="moq"/>
+                    <field name="empty_box_weight"/>
+                </tree>
+    </field>
+</record>
+
+<record id="view_packing_cost_sheet_revision_form" model="ir.ui.view">
+    <field name="name">packing.cost.sheet.revision.form</field>
+    <field name="model">packing.cost.sheet.revision</field>
+    <field name="arch" type="xml">
+        <form string="Revision Details">
+            <sheet>
+
+                <group col="4">
+                    <field name="sheet_id" readonly="1"/>
+                    <field name="revision_name" readonly="1"/>
+                    <field name="revision_no" readonly="1"/>
+                    <field name="revision_date" readonly="1"/>
+                </group>
+
+                <separator string="Cost Lines"/>
+
+                <field name="line_ids" readonly="1">
+                    <tree>
+                        <field name="section"/>
+                        <field name="description"/>
+                        <field name="length"/>
+                        <field name="width"/>
+                        <field name="thickness"/>
+                        <field name="qty"/>
+                        <field name="sqft"/>
+                        <field name="material"/>
+                        <field name="rm_rate"/>
+                        <field name="amount"/>
+                    </tree>
+                </field>
+
+            </sheet>
+        </form>
+    </field>
+</record>
+
+
+<record id="view_packing_cost_sheet_revision_tree" model="ir.ui.view">
+    <field name="name">packing.cost.sheet.revision.tree</field>
+    <field name="model">packing.cost.sheet.revision</field>
+    <field name="arch" type="xml">
+        <tree string="Revisions">
+            <field name="revision_name"/>
+            <field name="revision_no"/>
+            <field name="revision_date"/>
+        </tree>
+    </field>
+</record>
+
+
+    <!-- ================= ACTION ================= -->
+    <record id="action_bom" model="ir.actions.act_window">
+        <field name="name">Bill Of Material</field>
+        <field name="res_model">packing.cost.sheet</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+        <record id="action_bom_rev_" model="ir.actions.act_window">
+        <field name="name">Bill Of Material(rev)</field>
+        <field name="res_model">packing.cost.sheet.revision</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+
+
+    <menuitem id="menu_bom"
+              name="BOM"
+              parent="menu_engineering_root"
+              />
+    <menuitem id="menu_bom_form"
+              name="BOM"
+              parent="menu_bom"
+              action="action_bom"/>
+
+</odoo>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+VERSION -2 
+
+from odoo import models, fields, api
+import re
+
+class PackingCostSheet(models.Model):
+    _name = 'packing.cost.sheet'
+    _description = 'Packing Cost Sheet'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _rec_name = 'sequence_no'
+
+
+    sequence_no = fields.Char(
+        string="Packing Cost Sheet No",
+        readonly=True,
+        copy=False,
+        index=True,
+        default='New'
+    )
+
+    revision_no = fields.Integer(
+        string="Revision No",
+        default=0,
+        tracking=True
+    )
+
+    name = fields.Char(
+        string="Revision",
+        compute="_compute_revision_name",
+        store=True,
+        tracking=True
+    )
+
+    revision_ids = fields.One2many(
+        'packing.cost.sheet.revision',
+        'sheet_id',
+        string="Revision History",
+        readonly=True
+    )
+
+    active_revision_id = fields.Many2one(
+        'packing.cost.sheet.revision',
+        string="Current Revision",
+        readonly=True
+    )
+
+
+    lead_id = fields.Many2one(
+        'crm.lead',
+        string="CRM Lead",
+        ondelete='cascade',
+        index=True
+    )
+
+    engineering_id = fields.Many2one(
+        'engineering.team',
+        string="Engineering Reference",
+        ondelete='cascade',
+        readonly=True
+    )
+
+ 
+    # HEADER DETAILS
+ 
+    ref = fields.Char(string="Reference", required=True)
+    part_name= fields.Char(string="Part Name", required=True)
+    # box_type = fields.Char(string="Box Type")
+    box_id_l = fields.Float(string='Length')
+    box_id_w = fields.Float(string='Width')
+    box_id_h = fields.Float(string='Height')
+
+    box_od_l = fields.Float(string='Length', compute="_compute_box_od_l")
+    box_od_w = fields.Float(string='Width', compute="_compute_box_od_w")
+    box_od_h = fields.Float(string='Height', compute="_compute_box_od_h")
+
+    part_weight = fields.Float("Part Weight (KGS)")
+    empty_box_weight = fields.Float("Empty Box Weight (KGS)" , compute="_compute_empty_box_weight")
+    moq = fields.Integer("MOQ")
+
+ 
+    # COST LINES
+ 
+    line_ids = fields.One2many(
+        'packing.cost.line',
+        'sheet_id',
+        string="Cost Details"
+    )
+
+ 
+    # TOTALS
+ 
+    total_sqft = fields.Float(compute="_compute_totals", store=True)
+    total_cft = fields.Float(compute="_compute_totals", store=True)
+    material_total = fields.Float(compute="_compute_totals", store=True)
+
+    mfg_percent = fields.Float(default=5.0)
+    overhead_percent = fields.Float(default=5.0)
+    profit_percent = fields.Float(default=30.0)
+
+    mfg_amount = fields.Float(compute="_compute_totals", store=True)
+    overhead_amount = fields.Float(compute="_compute_totals", store=True)
+    profit_amount = fields.Float(compute="_compute_totals", store=True)
+
+    freight = fields.Float(default=0.0)
+    packing_charges = fields.Float(default=0.0)
+
+    grand_total = fields.Float(compute="_compute_totals", store=True)
+
+
+    revision_display = fields.Char(
+        string="Revision",
+        compute="_compute_revision_display",
+        store=True
+    )
+
+    @api.depends('revision_no')
+    def _compute_revision_display(self):
+        for rec in self:
+            rec.revision_display = f"Rev-{rec.revision_no}"
+
+    is_locked = fields.Boolean(
+        compute="_compute_is_locked",
+        store=False
+    )
+
+    @api.depends('revision_no')
+    def _compute_is_locked(self):
+        for rec in self:
+            rec.is_locked = rec.revision_no > 0
+
+ 
+    # COMPUTATIONS
+    @api.model
+    def create(self, vals):
+        if vals.get('sequence_no', 'New') == 'New':
+            vals['sequence_no'] = self.env['ir.sequence'].next_by_code(
+                'packing.cost.sheet'
+            ) or 'New'
+        return super().create(vals)
+
+
+
+    # --------------------
+    # REVISION SNAPSHOT
+    # --------------------
+    @api.depends('sequence_no', 'revision_no')
+    def _compute_revision_name(self):
+        for rec in self:
+            rec.name = f"{rec.sequence_no} / Rev-{rec.revision_no}"
+
+
+
+
+    # def action_create_revision(self):
+    #     for sheet in self:
+    #         new_rev_no = sheet.revision_no + 1
+
+    #         revision = self.env['packing.cost.sheet.revision'].create({
+    #             'sheet_id': sheet.id,
+    #             'revision_no': new_rev_no,
+    #             'revision_name': f"Rev-{new_rev_no}",
+    #         })
+
+    #         for line in sheet.line_ids:
+    #             self.env['packing.cost.sheet.revision.line'].create({
+    #                 'revision_id': revision.id,
+    #                 'section': line.section,
+    #                 'description': line.description.id,
+    #                 'length': line.length,
+    #                 'width': line.width,
+    #                 'thickness': line.thickness,
+    #                 'qty': line.qty,
+    #                 'sqft': line.sqft,
+    #                 'material': line.material.id,
+    #                 'rm_rate': line.rm_rate,
+    #                 'amount': line.amount,
+    #             })
+
+    #         sheet.write({
+    #             'revision_no': new_rev_no,
+    #             'active_revision_id': revision.id,
+    #         })
+
+
+
+    def action_create_revision(self):
+        for sheet in self:
+            new_rev_no = sheet.revision_no + 1
+
+            revision = self.env['packing.cost.sheet.revision'].create({
+                'sheet_id': sheet.id,
+                'revision_no': new_rev_no,
+                'revision_name': f"Rev-{new_rev_no}",
+            })
+
+            # COPY original BOM lines ONLY
+            for line in sheet.line_ids:
+                self.env['packing.cost.sheet.revision.line'].create({
+                    'revision_id': revision.id,
+                    'section': line.section,
+                    'description': line.description.id,
+                    'length': line.length,
+                    'width': line.width,
+                    'thickness': line.thickness,
+                    'qty': line.qty,
+                    'sqft': line.sqft,
+                    'material': line.material.id,
+                    'rm_rate': line.rm_rate,
+                    'amount': line.amount,
+                })
+
+            # ⚠️ DO NOT TOUCH sheet.line_ids
+            sheet.write({
+                'revision_no': new_rev_no,
+            })
+
+
+    def _create_revision_snapshot(self):
+        for sheet in self:
+            new_rev_no = sheet.revision_no + 1
+
+            revision = self.env['packing.cost.sheet.revision'].create({
+                'sheet_id': sheet.id,
+                'revision_no': new_rev_no,
+                'revision_name': f"Rev-{new_rev_no}",
+            })
+
+            for line in sheet.line_ids:
+                self.env['packing.cost.sheet.revision.line'].create({
+                    'revision_id': revision.id,
+                    'section': line.section,
+                    'description': line.description.id,
+                    'length': line.length,
+                    'width': line.width,
+                    'thickness': line.thickness,
+                    'qty': line.qty,
+                    'sqft': line.sqft,
+                    'material': line.material.id,
+                    'rm_rate': line.rm_rate,
+                    'amount': line.amount,
+                })
+
+            sheet.revision_no = new_rev_no
+            sheet.active_revision_id = revision.id
+
+
+    def action_view_revision(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Revision Details',
+            'res_model': 'packing.cost.sheet.revision',
+            'view_mode': 'tree,form',
+            'domain': [('sheet_id', '=', self.id)],
+        }
+
+
+
+    @api.depends('box_id_l')
+    def _compute_box_od_l(self):
+        for record in self:
+            record.box_od_l = record.box_id_l
+
+    @api.depends('box_id_w')
+    def _compute_box_od_w(self):
+        for record in self:
+            record.box_od_w = record.box_id_w
+
+    @api.depends('box_id_h')
+    def _compute_box_od_h(self):
+        for record in self:
+            record.box_od_h = record.box_id_h 
+
+
+
+    @api.depends(
+        'line_ids.amount',
+        'line_ids.sqft',
+        
+        'mfg_percent',
+        'overhead_percent',
+        'profit_percent',
+        'freight',
+        'packing_charges'
+    )
+    def _compute_totals(self):
+        for rec in self:
+            rec.material_total = sum(rec.line_ids.mapped('amount'))
+            rec.total_sqft = sum(rec.line_ids.mapped('sqft'))
+           
+
+            rec.mfg_amount = rec.material_total * rec.mfg_percent / 100
+            rec.overhead_amount = rec.material_total * rec.overhead_percent / 100
+            rec.profit_amount = rec.material_total * rec.profit_percent / 100
+
+            rec.grand_total = (
+                rec.material_total
+                + rec.mfg_amount
+                + rec.overhead_amount
+                + rec.profit_amount
+                + rec.freight
+                + rec.packing_charges
+            )
+
+
+    @api.depends('total_cft','total_sqft')
+    def _compute_empty_box_weight(self):
+        for record in self:
+            record.empty_box_weight = (((record.total_cft*17)+(record.total_sqft*0.6))+20)
+
+
+class PackingCostLine(models.Model):
+    _name = 'packing.cost.line'
+    _description = 'Packing Cost Line'
+
+    sheet_id = fields.Many2one(
+        'packing.cost.sheet',
+        ondelete='cascade'
+    )
+
+    section = fields.Selection([
+        ('base', 'Base'),
+        ('long_side', 'Long Side'),
+        ('short_side', 'Short Side'),
+        ('top_side','Top Side'),
+        ('loose_pine_support','Loose Pine Support'),
+        ('consumables','Consumables')
+    ], string="Section")
+
+    description = fields.Many2one('description.master', string="Description")
+
+    length = fields.Float("Length")
+    width = fields.Float("Width")
+    thickness = fields.Float("Thickness")
+    qty = fields.Float("Qty")
+
+    sqft = fields.Float("SQFT/CFT", compute="_compute_area", store=True)
+    # cft = fields.Float("CFT", compute="_compute_area", store=True)
+
+    material = fields.Many2one('material.master',string="Material")
+    rm_rate = fields.Float("RM Rate")
+    amount = fields.Float("Amount", compute="_compute_amount", store=True)
+
+    def _normalize_material_name(self, name):
+        if not name:
+            return ''
+        return re.sub(r'[^a-z0-9]', '', name.lower())
+
+
+    @api.depends('length', 'width', 'thickness', 'qty', 'material')
+    def _compute_area(self):
+        for line in self:
+            line.sqft = 0.0
+
+            # ---------- HARD SAFETY ----------
+            if not line.material:
+                continue
+            if not line.length or not line.width:
+                continue
+            if not line.qty or line.qty <= 0:
+                continue
+
+            mat_name = self._normalize_material_name(line.material.name)
+
+            # ---------- PINEWOOD ----------
+            if 'pinewood' in mat_name:
+                if not line.thickness:
+                    continue
+                line.sqft = (
+                    (line.length * line.width * line.thickness)
+                    / (305 *305 *305)* (line.qty / 0.95))
+
+            # ---------- PLYWOOD ----------
+            elif 'plywood' in mat_name:
+                line.sqft = (
+                    (line.length / 1000)* (line.width / 1000) * line.qty / 0.95 * 10.764)
+
+            # ---------- HDPE / VCI / MICRON / METER ----------
+            elif any(k in mat_name for k in ['hdpe', 'vci', 'micron', 'meter']):
+                if not line.thickness:
+                    continue
+                line.sqft = (
+                    (
+                        (2 * line.length * line.width)
+                        + (2 * line.length * line.thickness)
+                        + (2 * line.width * line.thickness)
+                    )
+                    * line.qty
+                )
+
+
+
+
+
+
+
+    @api.depends('sqft', 'rm_rate')
+    def _compute_amount(self):
+        for line in self:
+            line.amount = line.sqft * line.rm_rate
+
+    # @api.onchange('section')
+    # def _onchange_section_description(self):
+    #     if self.section:
+    #         return {
+    #             'domain': {
+    #                 'description': [('section', '=', self.section)]
+    #             }
+    #         }
+    #     else:
+    #         return {
+    #             'domain': {
+    #                 'description': []
+    #             }
+    #         }
+
+
+
+
+
+
+
+
+
+
+class MaterialMaster(models.Model):
+    _name = 'material.master'
+    _description = 'Material Master'
+    _rec_name = 'name'
+
+    name = fields.Char(
+        string="Material Name",
+        required=True
+    )
+
+
+class DescriptionlMaster(models.Model):
+    _name = 'description.master'
+    _description = 'Description Master'
+    _rec_name = 'name'
+
+    name = fields.Char(
+        string="Description Name",
+        required=True
+    )
+    section = fields.Selection([
+        ('base', 'Base'),
+        ('long_side', 'Long Side'),
+        ('short_side', 'Short Side'),
+        ('top_side','Top Side'),
+        ('loose_pine_support','Loose Pine Support'),
+        ('consumables','Consumables')
+    ], string="Section")
+
+
+class PackingCostSheetRevision(models.Model):
+    _name = 'packing.cost.sheet.revision'
+    _description = 'Packing Cost Sheet Revision'
+    _order = 'revision_no desc'
+    _rec_name = 'revision_name'
+
+    sheet_id = fields.Many2one('packing.cost.sheet', ondelete='cascade')
+    revision_no = fields.Integer(required=True)
+    revision_name = fields.Char(required=True)
+    revision_date = fields.Datetime(default=fields.Datetime.now, readonly=True)
+
+    line_ids = fields.One2many(
+        'packing.cost.sheet.revision.line',
+        'revision_id',
+        readonly=True
+    )
+
+
+class PackingCostSheetRevisionLine(models.Model):
+    _name = 'packing.cost.sheet.revision.line'
+    _description = 'Packing Cost Sheet Revision Line'
+
+    revision_id = fields.Many2one(
+        'packing.cost.sheet.revision',
+        string='Revision',
+        ondelete='cascade'
+    )
+
+    section = fields.Selection([
+        ('base', 'Base'),
+        ('long_side', 'Long Side'),
+        ('short_side', 'Short Side'),
+        ('top_side', 'Top Side'),
+        ('loose_pine_support', 'Loose Pine Support'),
+        ('consumables', 'Consumables')
+    ])
+
+    description = fields.Many2one('description.master')
+    length = fields.Float()
+    width = fields.Float()
+    thickness = fields.Float()
+    qty = fields.Float()
+    sqft = fields.Float()
+    material = fields.Many2one('material.master')
+    rm_rate = fields.Float()
+    amount = fields.Float()
+
+
+
+
+
+
+
+
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<record id="view_packing_cost_sheet_form" model="ir.ui.view">
+    <field name="name">packing.cost.sheet.form</field>
+    <field name="model">packing.cost.sheet</field>
+    <field name="arch" type="xml">
+        <form string="Packing Cost Sheet">
+            <sheet>
+                <header>
+                        <button name="action_create_revision"
+                                string="Create Revision"
+                                type="object"
+                                class="oe_highlight"/>                           
+                               <button name="action_view_revision"
+                                string="View Revisions"
+                                type="object"
+                                class="btn-secondary"/>
+                    </header>
+                     <!-- groups="dw_engineering_product.group_engineering_team" -->
+                
+                    <div class="oe_title">
+                        <h1>
+                            <field name="sequence_no" readonly="1"/>
+                        </h1>
+                    </div>
+
+                <!-- HEADER -->
+                <group col="4">
+                    <field name="ref"/>
+                    <field name="part_name"/>
+                    <!-- <field name="box_type"/> -->
+                    <field name="part_weight"/>
+                    <field name="moq"/>
+                    <field name="empty_box_weight"/>
+                    </group>
+                    <separator string="Dimension"/>
+
+                                    <table class="o_list_view table table-bordered" style="width:650px;">
+                                        <thead>
+                                            <tr>
+                                                <th>Sizes</th>
+                                                <th>Length</th>
+                                                <th>Width</th>
+                                                <th>Height</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td><strong>Box ID</strong></td>
+                                                <td><field name="box_id_l" nolabel="1"/></td>
+                                                <td><field name="box_id_w" nolabel="1"/></td>
+                                                <td><field name="box_id_h" nolabel="1"/></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Box OD</strong></td>
+                                                <td><field name="box_od_l" nolabel="1"/></td>
+                                                <td><field name="box_od_w" nolabel="1"/></td>
+                                                <td><field name="box_od_h" nolabel="1"/></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                
+
+                <notebook>
+
+                    <!-- COST DETAILS -->
+                    <page string="Cost Details">
+                        <field name="line_ids">
+                            <tree editable="bottom">
+                                <field name="section"/>
+                                <field name="description" domain="[('section', '=', section)]"/>
+                                <field name="length"/>
+                                <field name="width"/>
+                                <field name="thickness"/>
+                                <field name="qty"/>
+                                <field name="sqft" readonly="1"/>
+                                <!-- <field name="cft" readonly="1"/> -->
+                                <field name="material"/>
+                                <field name="rm_rate" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                                <field name="amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            </tree>
+                        </field>
+                    </page>
+
+                    <!-- SUMMARY -->
+                    <page string="Summary">
+                        <group col="4">
+                            <field name="total_sqft" readonly="1"/>
+                            <field name="total_cft" readonly="1"/>
+                            <field name="material_total" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                            <field name="mfg_percent" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            <field name="mfg_amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                            <field name="overhead_percent" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            <field name="overhead_amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                            <field name="profit_percent" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            <field name="profit_amount" readonly="1" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                            <field name="packing_charges" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                            <field name="freight" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+
+                            <field name="grand_total" readonly="1"
+                                   class="oe_highlight" groups="dw_engineering_product.group_engineering_team,dw_crm.group_crm_sales_team,dw_crm.group_crm_admin"/>
+                        </group>
+                    </page>
+
+
+                     <page string="Revisions">
+                            <field name="revision_ids" readonly="1">
+                                <tree>
+                                    <field name="revision_name"/>
+                                    <field name="revision_date"/>
+                                </tree>
+                            </field>
+                        </page>
+
+
+                </notebook>
+            </sheet>
+            <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+        </form>
+    </field>
+</record>
+
+<record id="view_packing_cost_sheet_tree" model="ir.ui.view">
+    <field name="name">packing.cost.sheet.tree</field>
+    <field name="model">packing.cost.sheet</field>
+    <field name="arch" type="xml">
+        <tree string="Packing Cost Sheet">
+                    <field name="sequence_no" />
+                        <field name="revision_display"/>
+                    <field name="ref"/>
+                    <field name="part_name"/>
+                    <!-- <field name="box_type"/> -->
+                    <field name="part_weight"/>
+                    <field name="moq"/>
+                    <field name="empty_box_weight"/>
+                </tree>
+    </field>
+</record>
+
+<record id="view_packing_cost_sheet_revision_form" model="ir.ui.view">
+    <field name="name">packing.cost.sheet.revision.form</field>
+    <field name="model">packing.cost.sheet.revision</field>
+    <field name="arch" type="xml">
+        <form string="Revision Details">
+            <sheet>
+
+                <group col="4">
+                    <field name="sheet_id" readonly="1"/>
+                    <field name="revision_name" readonly="1"/>
+                    <field name="revision_no" readonly="1"/>
+                    <field name="revision_date" readonly="1"/>
+                </group>
+
+                <separator string="Cost Lines"/>
+
+                <field name="line_ids" readonly="1">
+                    <tree>
+                        <field name="section"/>
+                        <field name="description"/>
+                        <field name="length"/>
+                        <field name="width"/>
+                        <field name="thickness"/>
+                        <field name="qty"/>
+                        <field name="sqft"/>
+                        <field name="material"/>
+                        <field name="rm_rate"/>
+                        <field name="amount"/>
+                    </tree>
+                </field>
+
+            </sheet>
+        </form>
+    </field>
+</record>
+
+
+<record id="view_packing_cost_sheet_revision_tree" model="ir.ui.view">
+    <field name="name">packing.cost.sheet.revision.tree</field>
+    <field name="model">packing.cost.sheet.revision</field>
+    <field name="arch" type="xml">
+        <tree string="Revisions">
+            <field name="revision_name"/>
+            <field name="revision_no"/>
+            <field name="revision_date"/>
+        </tree>
+    </field>
+</record>
+
+
+    <!-- ================= ACTION ================= -->
+    <record id="action_bom" model="ir.actions.act_window">
+        <field name="name">Bill Of Material</field>
+        <field name="res_model">packing.cost.sheet</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+        <record id="action_bom_rev_" model="ir.actions.act_window">
+        <field name="name">Bill Of Material(rev)</field>
+        <field name="res_model">packing.cost.sheet.revision</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+
+
+    <menuitem id="menu_bom"
+              name="BOM"
+              parent="menu_engineering_root"
+              />
+    <menuitem id="menu_bom_form"
+              name="BOM"
+              parent="menu_bom"
+              action="action_bom"/>
+
+</odoo>
+
+
+
+
+
+
+access_packing_cost_sheet_revision,packing.cost.sheet.revision,model_packing_cost_sheet_revision,,1,1,1,1
+access_packing_cost_sheet_revision_line,packing.cost.sheet.revision.line,model_packing_cost_sheet_revision_line,,1,1,1,1
+
+
+
+
+
+
+
+
+
+# from odoo import models, fields, api
+# import re
+
+# class PackingCostSheet(models.Model):
+#     _name = 'packing.cost.sheet'
+#     _description = 'Packing Cost Sheet'
+#     _inherit = ['mail.thread', 'mail.activity.mixin']
+#     _rec_name = 'sequence_no'
+
+#     sequence_no = fields.Char(
+#         string="Packing Cost Sheet No",
+#         readonly=True,
+#         copy=False,
+#         index=True,
+#         default='New'
+#     )
+
+#     revision_no = fields.Integer(
+#         string="Revision No",
+#         default=0,
+#         tracking=True,
+#         copy=True  # Allow copying of revision_no
+#     )
+
+#     name = fields.Char(
+#         string="Revision",
+#         compute="_compute_revision_name",
+#         store=True,
+#         tracking=True
+#     )
+
+#     parent_id = fields.Many2one(
+#         'packing.cost.sheet',
+#         string="Parent BOM",
+#         readonly=True,
+#         copy=False,
+#         help="Original BOM if this is a revision"
+#     )
+
+#     child_ids = fields.One2many(
+#         'packing.cost.sheet',
+#         'parent_id',
+#         string="Revisions",
+#         copy=False
+#     )
+
+#     highest_revision = fields.Integer(
+#         string="Latest Revision",
+#         compute="_compute_highest_revision",
+#         store=False
+#     )
+#     display_sequence = fields.Char(
+#         string="Reference",
+#         compute="_compute_display_sequence",
+#         store=False
+#     )
+
+#     currency_id = fields.Many2one(
+#         'res.currency',
+#         string="Currency",
+#         default=lambda self: self.env.company.currency_id,
+#         required=True
+#     )
+
+#     @api.depends('sequence_no', 'revision_no')
+#     def _compute_display_sequence(self):
+#         for rec in self:
+#             if rec.revision_no:
+#                 rec.display_sequence = f"{rec.sequence_no} / Rev-{rec.revision_no}"
+#             else:
+#                 rec.display_sequence = rec.sequence_no or ""
+
+#     lead_id = fields.Many2one(
+#         'crm.lead',
+#         string="CRM Lead",
+#         ondelete='cascade',
+#         index=True
+#     )
+
+#     engineering_id = fields.Many2one(
+#         'engineering.team',
+#         string="Engineering Reference",
+#         ondelete='cascade',
+#         readonly=True
+#     )
+
+#     # HEADER DETAILS
+#     ref = fields.Char(string="Reference")
+#     part_name = fields.Char(string="Part Name")
+#     box_id_l = fields.Float(string='Length')
+#     box_id_w = fields.Float(string='Width')
+#     box_id_h = fields.Float(string='Height')
+
+#     # box_od_l = fields.Float(string='Length', compute="_compute_box_od_l")
+#     # box_od_w = fields.Float(string='Width', compute="_compute_box_od_w")
+#     # box_od_h = fields.Float(string='Height', compute="_compute_box_od_h")
+#     box_od_l = fields.Float(string='Length')
+#     box_od_w = fields.Float(string='Width')
+#     box_od_h = fields.Float(
+#         string='Height',
+#         compute="_compute_box_od_h",
+#         store=True,
+#         readonly=False
+#     )
+
+#     @api.depends('line_ids.thickness')
+#     def _compute_box_od_h(self):
+#         for record in self:
+#             record.box_od_h = sum(record.line_ids.mapped('thickness'))
+
+#     part_weight = fields.Float("Part Weight (KGS)")
+#     empty_box_weight = fields.Float("Empty Box Weight (KGS)", compute="_compute_empty_box_weight")
+#     moq = fields.Integer("MOQ")
+
+#     # COST LINES
+#     line_ids = fields.One2many(
+#         'packing.cost.line',
+#         'sheet_id',
+#         string="Cost Details"
+#     )
+
+#     # TOTALS
+#     total_sqft = fields.Float(compute="_compute_totals", store=True)
+#     total_cft = fields.Float(compute="_compute_totals", store=True)
+#     material_total = fields.Float(compute="_compute_totals", store=True)
+
+#     mfg_percent = fields.Float(default=5.0)
+#     overhead_percent = fields.Float(default=5.0)
+#     profit_percent = fields.Float(default=30.0)
+
+#     mfg_amount = fields.Float(compute="_compute_totals", store=True)
+#     overhead_amount = fields.Float(compute="_compute_totals", store=True)
+#     profit_amount = fields.Float(compute="_compute_totals", store=True)
+
+#     freight = fields.Float(default=0.0)
+#     packing_charges = fields.Float(default=0.0)
+
+#     grand_total = fields.Float(compute="_compute_totals", store=True)
+
+#     bom_type = fields.Selection([
+#         ('2way_runner', '2 Way Runner Type Pine + Ply Boxes'),
+#         ('4way_runner', '4 Way Runner Type Pine + Ply Boxes'),
+#         ('block_type', 'Block Type Pine + Plywood Wooden Boxes'),
+#         ('thyssen_heavy', 'Thyssen Heavy Pallets + Bags'),
+#         ('pinewood_pallet', 'Pinewood Pallet'),
+#         ('pinewood_plywood', 'Pinewood + Plywood Pallets')
+#     ], string="BOM Type", required=True)
+
+#     @api.model
+#     def default_get(self, fields_list):
+#         res = super().default_get(fields_list)
+
+#         # Only for NEW BOM (not revisions)
+#         if not self.env.context.get('default_parent_id'):
+#             line_commands = []
+#             Description = self.env['description.master']
+
+#             bom_type = self.env.context.get('default_bom_type')
+
+#             if bom_type:
+#                 line_commands = []
+#                 Description = self.env['description.master']
+
+#             for line in self._get_default_bom_lines(bom_type):
+#                 desc = Description.search([
+#                     ('name', '=', line['description']),
+#                     ('section', '=', line['section'])
+#                 ], limit=1)
+
+#                 if not desc:
+#                     continue
+
+#                 line_commands.append((0, 0, {
+#                     'section': line['section'],
+#                     'description': desc.id,
+#                     'is_template': True,
+#                 }))
+
+#             res['line_ids'] = line_commands
+
+#         return res
+
+
+
+
+
+#     # @api.model
+#     # def create(self, vals):
+#     #     # Only generate new sequence if it's truly new (not a revision copy)
+#     #     if vals.get('sequence_no', 'New') == 'New':
+#     #         vals['sequence_no'] = self.env['ir.sequence'].next_by_code(
+#     #             'packing.cost.sheet'
+#     #         ) or 'New'
+#     #     return super().create(vals)
+
+#     @api.depends('sequence_no', 'revision_no')
+#     def _compute_revision_name(self):
+#         for rec in self:
+#             if rec.revision_no == 0:
+#                 rec.name = f"{rec.sequence_no}"  # Original BOM - just sequence number
+#             else:
+#                 rec.name = f"{rec.sequence_no} / Rev-{rec.revision_no}"  # Revisions - with Rev-X
+
+#     @api.depends('revision_no', 'parent_id', 'parent_id.child_ids', 'child_ids.revision_no')
+#     def _compute_highest_revision(self):
+#         for rec in self:
+#             # Get the parent BOM (if this is a revision) or self (if original)
+#             parent_bom = rec.parent_id if rec.parent_id else rec
+            
+#             # Get all related BOMs (parent + all children) as a recordset
+#             all_boms = parent_bom | parent_bom.child_ids
+            
+#             # Find maximum revision number
+#             if all_boms:
+#                 rec.highest_revision = max(all_boms.mapped('revision_no'))
+#             else:
+#                 rec.highest_revision = rec.revision_no
+
+#     # def action_create_revision(self):
+#     #     self.ensure_one()
+        
+#     #     # Determine the parent - if this is already a revision, use its parent
+#     #     parent_bom = self.parent_id if self.parent_id else self
+        
+#     #     # Calculate the new revision number based on parent's highest revision
+#     #     all_existing_revisions = parent_bom | parent_bom.child_ids
+#     #     new_rev_no = max(all_existing_revisions.mapped('revision_no')) + 1
+        
+#     #     # Create a NEW BOM record (copy of current) - KEEP SAME SEQUENCE NUMBER
+#     #     new_bom = self.copy({
+#     #         'sequence_no': parent_bom.sequence_no,  # Use parent's sequence number
+#     #         'revision_no': new_rev_no,
+#     #         'parent_id': parent_bom.id,
+#     #     })
+        
+#     #     # Copy all lines from CURRENT BOM to NEW BOM
+#     #     for line in self.line_ids:
+#     #         line.copy({'sheet_id': new_bom.id})
+        
+#     #     return {
+#     #         'type': 'ir.actions.act_window',
+#     #         'name': f'Revision {new_rev_no}',
+#     #         'res_model': 'packing.cost.sheet',
+#     #         'res_id': new_bom.id,
+#     #         'view_mode': 'form',
+#     #         'target': 'current',
+#     #     }
+
+#     def action_create_revision(self):
+#         self.ensure_one()
+        
+#         # Determine the parent - if this is already a revision, use its parent
+#         parent_bom = self.parent_id if self.parent_id else self
+        
+#         # Calculate the new revision number based on parent's highest revision
+#         all_existing_revisions = parent_bom | parent_bom.child_ids
+#         new_rev_no = max(all_existing_revisions.mapped('revision_no')) + 1
+        
+#         # Create a NEW BOM record - KEEP SAME SEQUENCE NUMBER AS PARENT
+#         new_bom = self.copy({
+#             'sequence_no': parent_bom.sequence_no,  # ← SAME SEQUENCE AS PARENT
+#             'revision_no': new_rev_no,
+#             'parent_id': parent_bom.id,
+#             'part_name': self.part_name,   # ✅ REQUIRED FIELD
+#             'ref': self.ref,               # ✅ ALSO REQUIRED
+
+#         })
+        
+#         # Copy all lines from CURRENT BOM to NEW BOM
+#         for line in self.line_ids:
+#             line.copy({'sheet_id': new_bom.id})
+        
+#         return {
+#             'type': 'ir.actions.act_window',
+#             'name': f'Revision {new_rev_no}',
+#             'res_model': 'packing.cost.sheet',
+#             'res_id': new_bom.id,
+#             'view_mode': 'form',
+#             'target': 'current',
+#         }
+
+#     # def _get_default_bom_lines(self):
+#     #     return [
+#     #         # Base
+#     #         {'section': 'base', 'description': 'Base Plywood'},
+#     #         {'section': 'base', 'description': 'Length Runner'},
+
+#     #         # Long Side
+#     #         {'section': 'long_side', 'description': 'LS Ply'},
+#     #         {'section': 'long_side', 'description': 'LS Horizontal Batten'},
+#     #         {'section': 'long_side', 'description': 'LS Vertical Batten'},
+
+#     #         # Short Side
+#     #         {'section': 'short_side', 'description': 'SS Ply'},
+#     #         {'section': 'short_side', 'description': 'SS Horizontal Batten'},
+#     #         {'section': 'short_side', 'description': 'SS Vertical Batten'},
+#     #         {'section': 'short_side', 'description': 'SS Bharti'},
+
+#     #         # Top Side
+#     #         {'section': 'top_side', 'description': 'TS Ply'},
+#     #         {'section': 'top_side', 'description': 'TS L wise Batten'},
+#     #         {'section': 'top_side', 'description': 'TS W wise Batten'},
+
+#     #         # Loose Pine Support
+#     #         {'section': 'loose_pine_support', 'description': 'Pine Supp'},
+
+#     #         # Consumables
+#     #         {'section': 'consumables', 'description': 'HDPE'},
+#     #         {'section': 'consumables', 'description': 'VCI'},
+#     #         {'section': 'consumables', 'description': 'Desiccant'},
+#     #     ]
+
+
+
+#     def _get_default_bom_lines(self, bom_type):
+
+#         if bom_type == '2way_runner':
+#             return [
+#                 {'section': 'base', 'description': 'Base Plywood'},
+#                 {'section': 'base', 'description': 'Length Runner'},
+
+#                 {'section': 'long_side', 'description': 'LS Ply'},
+#                 {'section': 'long_side', 'description': 'LS Horizontal Batten'},
+#                 {'section': 'long_side', 'description': 'LS Vertical Batten'},
+
+#                 {'section': 'short_side', 'description': 'SS Ply'},
+#                 {'section': 'short_side', 'description': 'SS Horizontal Batten'},
+#                 {'section': 'short_side', 'description': 'SS Vertical Batten'},
+#                 {'section': 'short_side', 'description': 'SS Bharti'},
+
+#                 {'section': 'top_side', 'description': 'TS Ply'},
+#                 {'section': 'top_side', 'description': 'TS L wise Batten'},
+#                 {'section': 'top_side', 'description': 'TS W wise Batten'},
+
+#                 {'section': 'loose_pine_support', 'description': 'Pine Supp'},
+
+#                 {'section': 'consumables', 'description': 'HDPE'},
+#                 {'section': 'consumables', 'description': 'VCI'},
+#                 {'section': 'consumables', 'description': 'Desicant'},
+#             ]
+
+#         elif bom_type == '4way_runner':
+#             return [
+#                 {'section': 'base', 'description': 'Base Plywood'},
+#                 {'section': 'base', 'description': 'Length Runner'},
+#                 {'section': 'base', 'description': 'Width Runner'},  # extra
+
+#                 {'section': 'long_side', 'description': 'LS Ply'},
+#                 {'section': 'long_side', 'description': 'LS Horizontal Batten'},
+#                 {'section': 'long_side', 'description': 'LS Vertical Batten'},
+
+#                 {'section': 'short_side', 'description': 'SS Ply'},
+#                 {'section': 'short_side', 'description': 'SS Horizontal Batten'},
+#                 {'section': 'short_side', 'description': 'SS Vertical Batten'},
+#                 {'section': 'short_side', 'description': 'SS Bharti'},
+
+#                 {'section': 'top_side', 'description': 'TS Ply'},
+#                 {'section': 'top_side', 'description': 'TS L wise Batten'},
+#                 {'section': 'top_side', 'description': 'TS W wise Batten'},
+
+#                 {'section': 'loose_pine_support', 'description': 'Pine Supp'},
+
+#                 {'section': 'consumables', 'description': 'HDPE'},
+#                 {'section': 'consumables', 'description': 'VCI'},
+#                 {'section': 'consumables', 'description': 'Desicant'},
+#             ]
+
+#         elif bom_type == 'block_type':
+#             return [
+#                 {'section': 'base', 'description': 'Base Plywood'},
+#                 {'section': 'base', 'description': 'Above Block Plank'},
+#                 {'section': 'base', 'description': 'Block'},
+#                 {'section': 'base', 'description': 'Below Block Plank'},
+
+#                 {'section': 'long_side', 'description': 'LS Ply'},
+#                 {'section': 'long_side', 'description': 'LS Horizontal Batten'},
+#                 {'section': 'long_side', 'description': 'LS Vertical Batten'},
+
+#                 {'section': 'short_side', 'description': 'SS Ply'},
+#                 {'section': 'short_side', 'description': 'SS Horizontal Batten'},
+#                 {'section': 'short_side', 'description': 'SS Vertical Batten'},
+
+#                 {'section': 'top_side', 'description': 'TS Ply'},
+#                 {'section': 'top_side', 'description': 'TS L wise Batten'},
+#                 {'section': 'top_side', 'description': 'TS W wise Batten'},
+
+#                 {'section': 'loose_ply_sheet', 'description': 'Ply sheet'},
+#                 {'section': 'loose_pine_support', 'description': 'Pine Supp'},
+
+#                 {'section': 'consumables', 'description': 'HDPE'},
+#                 {'section': 'consumables', 'description': 'VCI'},
+#                 {'section': 'consumables', 'description': 'Desicant'},
+#             ]
+
+#         elif bom_type == 'thyssen_heavy':
+#             return [
+#                 {'section': 'base', 'description': 'Base Plywood'},
+#                 {'section': 'base', 'description': 'Length Runner'},
+#                 {'section': 'base', 'description': 'Width Runner'},
+
+#                 {'section': 'loose_pine_support', 'description': 'Pine Supp'},
+
+#                 {'section': 'consumables', 'description': 'Lag Screw 10x150 mm'},
+#                 {'section': 'consumables', 'description': 'M16x300 mm Nut Bolt'},
+#                 {'section': 'consumables', 'description': 'D Clamp & Lag Screw'},
+#                 {'section': 'consumables', 'description': 'HDPE'},
+#                 {'section': 'consumables', 'description': 'VCI'},
+#                 {'section': 'consumables', 'description': 'Aluminium Foil Bag'},
+#                 {'section': 'consumables', 'description': 'Silpaulin Bag'},
+#                 {'section': 'consumables', 'description': 'HDPE Bag'},
+#                 {'section': 'consumables', 'description': 'Desicant'},
+#                 {'section': 'consumables', 'description': '5 mm Foam'},
+#                 {'section': 'consumables', 'description': 'Bubble Roll'},
+#                 {'section': 'consumables', 'description': 'Lashing Belt'},
+#                 {'section': 'consumables', 'description': 'Buckles'},
+#                 {'section': 'consumables', 'description': 'Stretch wrap'},
+#             ]
+
+#         elif bom_type == 'pinewood_pallet':
+#             return [
+#                 {'section': 'base', 'description': 'Top Batten'},
+#                 {'section': 'base', 'description': 'Above Block Batten'},
+#                 {'section': 'base', 'description': 'Block'},
+#                 {'section': 'base', 'description': 'Below Block Batten'},
+#             ]
+#         elif bom_type == 'pinewood_plywood':
+#             return [
+#                 {'section': 'base', 'description': 'Top Batten'},
+#                 {'section': 'base', 'description': 'Above Block Batten'},
+#                 {'section': 'base', 'description': 'Block'},
+#                 {'section': 'base', 'description': 'Below Block Batten'},
+#             ]
+
+
+#         return []
+
+
+#     def _create_default_lines(self):
+#         Description = self.env['description.master']
+
+#         lines = self._get_default_bom_lines(self.bom_type)
+
+#         for line in lines:
+#             desc = Description.search([
+#                 ('name', '=', line['description']),
+#                 ('section', '=', line['section'])
+#             ], limit=1)
+
+#             if not desc:
+#                 continue
+
+#             self.env['packing.cost.line'].create({
+#                 'sheet_id': self.id,
+#                 'section': line['section'],
+#                 'description': desc.id,
+#                 'is_template': True,
+#             })
+
+
+
+
+#     @api.onchange('bom_type')
+#     def _onchange_bom_type(self):
+#         if not self.bom_type:
+#             self.line_ids = [(5, 0, 0)]
+#             return
+
+#         Description = self.env['description.master']
+#         line_commands = [(5, 0, 0)]  # clear existing lines
+
+#         for line in self._get_default_bom_lines(self.bom_type):
+#             desc = Description.search([
+#                 ('name', '=', line['description']),
+#                 ('section', '=', line['section'])
+#             ], limit=1)
+
+#             if not desc:
+#                 continue
+
+#             line_commands.append((0, 0, {
+#                 'section': line['section'],
+#                 'description': desc.id,
+#                 'is_template': True,
+#             }))
+
+#         self.line_ids = line_commands
+
+
+
+
+#     # def _create_default_lines(self):
+#     #     Description = self.env['description.master']
+
+#     #     for line in self._get_default_bom_lines():
+#     #         desc = Description.search([
+#     #             ('name', '=', line['description']),
+#     #             ('section', '=', line['section'])
+#     #         ], limit=1)
+
+#     #         if not desc:
+#     #             continue  # safety
+
+#     #         self.env['packing.cost.line'].create({
+#     #             'sheet_id': self.id,
+#     #             'section': line['section'],
+#     #             'description': desc.id,
+#     #             'is_template': True,
+#     #         })
+
+
+#     @api.model
+#     def create(self, vals):
+#         # Generate sequence
+#         if vals.get('sequence_no', 'New') == 'New':
+#             vals['sequence_no'] = self.env['ir.sequence'].next_by_code(
+#                 'packing.cost.sheet'
+#             ) or 'New'
+
+#         record = super().create(vals)
+
+#         if record.box_id_l and record.box_id_w and record.box_id_h:
+#             record._calculate_line_dimensions()
+     
+#         return record
+
+
+
+#     def action_view_revisions(self):
+#         self.ensure_one()
+#         # If this is a revision, show parent's children. Otherwise show this record's children
+#         parent_bom = self.parent_id if self.parent_id else self
+        
+#         return {
+#             'type': 'ir.actions.act_window',
+#             'name': 'All Revisions',
+#             'res_model': 'packing.cost.sheet',
+#             'view_mode': 'tree,form',
+#             'domain': ['|', ('id', '=', parent_bom.id), ('parent_id', '=', parent_bom.id)],
+#         }
+
+#     # @api.depends('box_id_l')
+#     # def _compute_box_od_l(self):
+#     #     for record in self:
+#     #         record.box_od_l = record.box_id_l
+
+#     # @api.depends('box_id_w')
+#     # def _compute_box_od_w(self):
+#     #     for record in self:
+#     #         record.box_od_w = record.box_id_w
+
+#     # @api.depends('box_id_h')
+#     # def _compute_box_od_h(self):
+#     #     for record in self:
+#     #         record.box_od_h = record.box_id_h
+
+
+#     @api.depends(
+#         'line_ids.amount',
+#         'line_ids.sqft',
+#         'line_ids.material',
+#         'line_ids.material.name',
+#         'mfg_percent',
+#         'overhead_percent',
+#         'profit_percent',
+#         'freight',
+#         'packing_charges'
+#     )
+#     def _compute_totals(self):
+#         for rec in self:
+#             total_sqft = 0.0
+#             total_cft = 0.0
+
+#             for line in rec.line_ids:
+#                 if not line.material:
+#                     continue
+
+#                 mat_name = (line.material.name or '').lower()
+
+#                 # SQFT → only plywood
+#                 if 'plywood' in mat_name:
+#                     total_sqft += line.sqft or 0.0
+
+#                 # CFT → only wood materials
+#                 elif any(k in mat_name for k in ['pinewood', 'rubberwood', 'junglewood']):
+#                     total_cft += line.sqft or 0.0
+
+#             rec.total_sqft = total_sqft
+#             rec.total_cft = total_cft
+
+#             # Amount totals
+#             rec.material_total = sum(rec.line_ids.mapped('amount'))
+
+#             rec.mfg_amount = rec.material_total * rec.mfg_percent / 100
+#             rec.overhead_amount = rec.material_total * rec.overhead_percent / 100
+#             rec.profit_amount = rec.material_total * rec.profit_percent / 100
+
+#             rec.grand_total = (
+#                 rec.material_total
+#                 + rec.mfg_amount
+#                 + rec.overhead_amount
+#                 + rec.profit_amount
+#                 + rec.freight
+#                 + rec.packing_charges
+#             )
+
+
+#     @api.depends('total_cft', 'total_sqft')
+#     def _compute_empty_box_weight(self):
+#         for record in self:
+#             record.empty_box_weight = (((record.total_cft * 17) + (record.total_sqft * 0.6)) + 20)
+
+
+#     def _remove_empty_lines(self):
+#         for rec in self:
+#             empty_lines = rec.line_ids.filtered(lambda l: l.is_empty_line())
+#             empty_lines.unlink()
+
+#     def write(self, vals):
+#         res = super().write(vals)
+
+#     # Recalculate if relevant fields changed
+#         if any(key in vals for key in ['box_id_l', 'box_id_w', 'box_id_h', 'bom_type']):
+#             for record in self:
+#                 if record.box_id_l and record.box_id_w and record.box_id_h:
+#                     record.with_context(skip_dimension_calc=True)._calculate_line_dimensions()
+        
+
+
+#         # 🔥 Remove empty lines after save
+#         self._remove_empty_lines()
+
+#         return res
+
+
+#     def action_recalculate_dimensions(self):
+#         """Manual button to recalculate all dimensions"""
+#         self.ensure_one()
+#         self._calculate_line_dimensions()
+#         return {
+#             'type': 'ir.actions.client',
+#             'tag': 'display_notification',
+#             'params': {
+#                 'title': 'Success',
+#                 'message': 'Dimensions recalculated successfully',
+#                 'type': 'success',
+#                 'sticky': False,
+#             }
+#         }
+
+
+#     def _calculate_line_dimensions(self):
+#         """Calculate and update line dimensions based on box dimensions and BOM type"""
+#         self.ensure_one()
+        
+#         L = self.box_id_l or 0
+#         W = self.box_id_w or 0
+#         H = self.box_id_h or 0
+
+#         if not L or not W or not H:
+#             return  # Skip if dimensions not set
+
+#         def get(name):
+#             for line in self.line_ids:
+#                 if line.description and name in line.description.name:
+#                     return line
+#             return False
+
+#         # Collect all updates in a dictionary
+#         updates = {}
+
+#         # =====================================================
+#         # PALLET TYPES
+#         # =====================================================
+#         if self.bom_type in ['pinewood_pallet', 'pinewood_plywood']:
+            
+#             top = get('Top Batten')
+#             above = get('Above Block Batten')
+#             block = get('Block')
+#             below = get('Below Block Batten')
+
+#             if top:
+#                 updates[top.id] = {'length': L, 'width': 75.0}
+
+#             if above:
+#                 updates[above.id] = {'length': W, 'width': 75.0}
+
+#             if block:
+#                 updates[block.id] = {'length': 75.0, 'width': 75.0}
+
+#             if below:
+#                 updates[below.id] = {'length': L, 'width': 75.0}
+
+#             self.box_od_l = L
+#             self.box_od_w = W
+
+#         # =====================================================
+#         # 4 WAY RUNNER
+#         # =====================================================
+#         elif self.bom_type == '4way_runner':
+            
+#             base = get('Base Plywood')
+#             lr = get('Length Runner')
+#             ss_ply = get('SS Ply')
+#             ss_h = get('SS Horizontal Batten')
+#             ls_ply = get('LS Ply')
+#             ls_h = get('LS Horizontal Batten')
+#             ls_v = get('LS Vertical Batten')
+#             ss_v = get('SS Vertical Batten')
+#             ts_ply = get('TS Ply')
+#             ts_l = get('TS L wise Batten')
+#             ts_w = get('TS W wise Batten')
+#             pine = get('Pine Supp')
+#             hdpe = get('HDPE')
+#             vci = get('VCI')
+
+#             # Base
+#             if base:
+#                 base_length = L + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#                 updates[base.id] = {'length': base_length, 'width': W}
+
+#             # Length Runner
+#             if lr and base:
+#                 lr_length = (
+#                     L
+#                     + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#                     + ((ss_h.thickness * ss_h.qty / 2) if ss_h else 0)
+#                 )
+#                 lr_width = (
+#                     H
+#                     + (base.thickness if base else 0)
+#                     + lr.thickness
+#                     + (pine.thickness if pine else 0)
+#                 )
+#                 updates[lr.id] = {'length': lr_length, 'width': lr_width}
+
+#             # LS Ply
+#             if ls_ply and base:
+#                 updates[ls_ply.id] = {'length': base.length, 'width': H}
+
+#             # LS Vertical
+#             if ls_v and ls_h:
+#                 updates[ls_v.id] = {'length': H - ((ls_h.width * ls_h.qty) / 2)}
+
+#             # SS Ply
+#             if ss_ply and base:
+#                 ss_width = (
+#                     H
+#                     + (base.thickness if base else 0)
+#                     + (pine.thickness if pine else 0)
+#                 )
+#                 updates[ss_ply.id] = {'length': H, 'width': ss_width}
+
+#             # SS Vertical
+#             if ss_v and ss_h and base and lr:
+#                 ss_v_length = (
+#                     H
+#                     + (base.thickness if base else 0)
+#                     + (lr.thickness if lr else 0)
+#                 ) - ss_h.width
+#                 updates[ss_v.id] = {'length': ss_v_length}
+
+#             # TS Ply
+#             if ts_ply:
+#                 ts_length = (
+#                     L
+#                     + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#                     + ((ss_h.thickness * ss_h.qty) if ss_h else 0)
+#                 )
+#                 ts_width = (
+#                     W
+#                     + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#                     + ((ss_h.thickness * ss_h.qty) if ss_h else 0)
+#                 )
+#                 updates[ts_ply.id] = {'length': ts_length, 'width': ts_width}
+
+#             # TS W wise
+#             if ts_w and ts_l and ts_ply:
+#                 updates[ts_w.id] = {'length': ts_ply.width - (ts_l.width * ts_l.qty)}
+
+#             # Pine
+#             if pine:
+#                 updates[pine.id] = {'length': W}
+
+#             # HDPE
+#             if hdpe:
+#                 updates[hdpe.id] = {
+#                     'length': L / 1000,
+#                     'width': W / 1000,
+#                     'thickness': H / 1000
+#                 }
+
+#             # VCI
+#             if vci:
+#                 updates[vci.id] = {
+#                     'length': (self.box_od_l + 50) / 1000,
+#                     'width': (self.box_od_w + 50) / 1000,
+#                     'thickness': (self.box_od_h + 50) / 1000
+#                 }
+
+#             # Set OD values
+#             if base:
+#                 self.box_od_l = base.length
+#                 self.box_od_w = base.width
+#             else:
+#                 self.box_od_l = L
+#                 self.box_od_w = W
+
+#         # =====================================================
+#         # BLOCK TYPE
+#         # =====================================================
+#         elif self.bom_type == 'block_type':
+            
+#             base = get('Base Plywood')
+#             ls_ply = get('LS Ply')
+#             ls_h = get('LS Horizontal Batten')
+#             ss_ply = get('SS Ply')
+#             ss_h = get('SS Horizontal Batten')
+#             ts_ply = get('TS Ply')
+
+#             if base:
+#                 base_length = (
+#                     L
+#                     + ((ls_ply.thickness * ls_ply.qty) if ls_ply else 0)
+#                     + ((ls_h.thickness * ls_h.qty) if ls_h else 0)
+#                 )
+#                 base_width = (
+#                     W
+#                     + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#                     + ((ss_h.thickness * ss_h.qty) if ss_h else 0)
+#                 )
+#                 updates[base.id] = {'length': base_length, 'width': base_width}
+
+#             if ls_ply and base:
+#                 updates[ls_ply.id] = {'length': base.length, 'width': H}
+
+#             if ts_ply and base:
+#                 updates[ts_ply.id] = {'length': base.length, 'width': base.width}
+
+#             # Set OD values
+#             if base:
+#                 self.box_od_l = base.length
+#                 self.box_od_w = base.width
+#             else:
+#                 self.box_od_l = L
+#                 self.box_od_w = W
+
+#         # Apply all updates at once using SQL to avoid triggering other computed fields
+#         if updates:
+#             for line_id, vals in updates.items():
+#                 self.env['packing.cost.line'].browse(line_id).write(vals)
+
+#         # def _calculate_line_dimensions(self):
+#         #     """Calculate and update line dimensions based on box dimensions and BOM type"""
+#         #     self.ensure_one()
+            
+#         #     L = self.box_id_l or 0
+#         #     W = self.box_id_w or 0
+#         #     H = self.box_id_h or 0
+
+#         #     def get(name):
+#         #         for line in self.line_ids:
+#         #             if line.description and name in line.description.name:
+#         #                 return line
+#         #         return False
+
+#         #     # =====================================================
+#         #     # PALLET TYPES
+#         #     # =====================================================
+#         #     if self.bom_type in ['pinewood_pallet', 'pinewood_plywood']:
+                
+#         #         top = get('Top Batten')
+#         #         above = get('Above Block Batten')
+#         #         block = get('Block')
+#         #         below = get('Below Block Batten')
+
+#         #         if top:
+#         #             top.write({'length': L, 'width': 75.0})
+
+#         #         if above:
+#         #             above.write({'length': W, 'width': 75.0})
+
+#         #         if block:
+#         #             block.write({'length': 75.0, 'width': 75.0})
+
+#         #         if below:
+#         #             below.write({'length': L, 'width': 75.0})
+
+#         #         self.box_od_l = L
+#         #         self.box_od_w = W
+
+#         #     # =====================================================
+#         #     # 4 WAY RUNNER
+#         #     # =====================================================
+#         #     elif self.bom_type == '4way_runner':
+                
+#         #         base = get('Base Plywood')
+#         #         lr = get('Length Runner')
+#         #         wr = get('Width Runner')
+#         #         ls_ply = get('LS Ply')
+#         #         ls_h = get('LS Horizontal Batten')
+#         #         ls_v = get('LS Vertical Batten')
+#         #         ss_ply = get('SS Ply')
+#         #         ss_h = get('SS Horizontal Batten')
+#         #         ss_v = get('SS Vertical Batten')
+#         #         ts_ply = get('TS Ply')
+#         #         ts_l = get('TS L wise Batten')
+#         #         ts_w = get('TS W wise Batten')
+#         #         pine = get('Pine Supp')
+#         #         hdpe = get('HDPE')
+#         #         vci = get('VCI')
+
+#         #         # ---- Base
+#         #         if base:
+#         #             base.write({
+#         #                 'length': L + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0),
+#         #                 'width': W
+#         #             })
+
+#         #         # ---- OD L/W
+#         #         self.box_od_l = base.length if base else L
+#         #         self.box_od_w = base.width if base else W
+
+#         #         # ---- Length Runner
+#         #         if lr:
+#         #             lr.write({
+#         #                 'length': (
+#         #                     L
+#         #                     + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#         #                     + ((ss_h.thickness * ss_h.qty / 2) if ss_h else 0)
+#         #                 ),
+#         #                 'width': (
+#         #                     H
+#         #                     + (base.thickness if base else 0)
+#         #                     + lr.thickness
+#         #                     + (pine.thickness if pine else 0)
+#         #                 )
+#         #             })
+
+#         #         # ---- LS Ply
+#         #         if ls_ply and base:
+#         #             ls_ply.write({
+#         #                 'length': base.length,
+#         #                 'width': H
+#         #             })
+
+#         #         # ---- LS Vertical
+#         #         if ls_v and ls_h:
+#         #             ls_v.write({
+#         #                 'length': H - ((ls_h.width * ls_h.qty) / 2)
+#         #             })
+
+#         #         # ---- SS Ply
+#         #         if ss_ply:
+#         #             ss_ply.write({
+#         #                 'length': H,
+#         #                 'width': (
+#         #                     H
+#         #                     + (base.thickness if base else 0)
+#         #                     + (pine.thickness if pine else 0)
+#         #                 )
+#         #             })
+
+#         #         # ---- SS Vertical
+#         #         if ss_v and ss_h:
+#         #             ss_v.write({
+#         #                 'length': (
+#         #                     H
+#         #                     + (base.thickness if base else 0)
+#         #                     + (lr.thickness if lr else 0)
+#         #                 ) - ss_h.width
+#         #             })
+
+#         #         # ---- TS Ply
+#         #         if ts_ply:
+#         #             ts_ply.write({
+#         #                 'length': (
+#         #                     L
+#         #                     + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#         #                     + ((ss_h.thickness * ss_h.qty) if ss_h else 0)
+#         #                 ),
+#         #                 'width': (
+#         #                     W
+#         #                     + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#         #                     + ((ss_h.thickness * ss_h.qty) if ss_h else 0)
+#         #                 )
+#         #             })
+
+#         #         # ---- TS W
+#         #         if ts_w and ts_l and ts_ply:
+#         #             ts_w.write({
+#         #                 'length': ts_ply.width - (ts_l.width * ts_l.qty)
+#         #             })
+
+#         #         # ---- Pine
+#         #         if pine:
+#         #             pine.write({'length': W})
+
+#         #         # ---- HDPE
+#         #         if hdpe:
+#         #             hdpe.write({
+#         #                 'length': L / 1000,
+#         #                 'width': W / 1000,
+#         #                 'thickness': H / 1000
+#         #             })
+
+#         #         # ---- VCI
+#         #         if vci:
+#         #             vci.write({
+#         #                 'length': (self.box_od_l + 50) / 1000,
+#         #                 'width': (self.box_od_w + 50) / 1000,
+#         #                 'thickness': (self.box_od_h + 50) / 1000
+#         #             })
+
+#         #     # =====================================================
+#         #     # BLOCK TYPE
+#         #     # =====================================================
+#         #     elif self.bom_type == 'block_type':
+                
+#         #         base = get('Base Plywood')
+#         #         ls_ply = get('LS Ply')
+#         #         ls_h = get('LS Horizontal Batten')
+#         #         ss_ply = get('SS Ply')
+#         #         ss_h = get('SS Horizontal Batten')
+#         #         ts_ply = get('TS Ply')
+
+#         #         if base:
+#         #             base.write({
+#         #                 'length': (
+#         #                     L
+#         #                     + ((ls_ply.thickness * ls_ply.qty) if ls_ply else 0)
+#         #                     + ((ls_h.thickness * ls_h.qty) if ls_h else 0)
+#         #                 ),
+#         #                 'width': (
+#         #                     W
+#         #                     + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#         #                     + ((ss_h.thickness * ss_h.qty) if ss_h else 0)
+#         #                 )
+#         #             })
+
+#         #         self.box_od_l = base.length if base else L
+#         #         self.box_od_w = base.width if base else W
+
+#         #         if ls_ply and base:
+#         #             ls_ply.write({
+#         #                 'length': base.length,
+#         #                 'width': H
+#         #             })
+
+#         #         if ts_ply and base:
+#         #             ts_ply.write({
+#         #                 'length': base.length,
+#         #                 'width': base.width
+#         #             })
+
+
+
+
+
+
+# class PackingCostLine(models.Model):
+#     _name = 'packing.cost.line'
+#     _description = 'Packing Cost Line'
+
+#     sheet_id = fields.Many2one(
+#         'packing.cost.sheet',
+#         ondelete='cascade'
+#     )
+
+#     is_template = fields.Boolean(
+#         string="Template Line",
+#         default=False
+#     )
+
+#     section = fields.Selection([
+#         ('base', 'Base'),
+#         ('long_side', 'Long Side'),
+#         ('short_side', 'Short Side'),
+#         ('top_side', 'Top Side'),
+#         ('loose_ply_sheet', 'Loose Ply Sheet'),
+#         ('loose_pine_support', 'Loose Pine Support'),
+#         ('consumables', 'Consumables')
+#     ], string="Section")
+
+#     description = fields.Many2one('description.master', string="Description")
+
+#     length = fields.Float("Length")
+#     width = fields.Float("Width")
+#     thickness = fields.Float("Thickness")
+#     qty = fields.Float("Qty")
+
+#     sqft = fields.Float("SQFT/CFT", compute="_compute_area", store=True)
+
+#     material = fields.Many2one('material.master', string="Material")
+#     rm_rate = fields.Float("RM Rate")
+#     amount = fields.Float("Amount", compute="_compute_amount", store=True)
+
+
+
+#     # CH BOX FIELDS
+#     sr_no = fields.Integer("Sr.No")
+#     box_type = fields.Char("Box Type")
+
+#     height = fields.Float("Height")
+#     no_of_ply = fields.Integer("No.Of Ply")
+#     board_gsm = fields.Float("Board GSM")
+
+#     deckle = fields.Float("Deckle")
+#     cl = fields.Float("CL")
+
+#     weight_kg = fields.Float("Weight/KG")
+#     sqm = fields.Float("SQM")
+
+#     box_rate = fields.Float("Box Rate", compute="_compute_box_rate", store=True)
+    
+
+
+
+#     def _normalize_material_name(self, name):
+#         if not name:
+#             return ''
+#         return re.sub(r'[^a-z0-9]', '', name.lower())
+
+#     @api.depends('length', 'width', 'thickness', 'qty', 'material')
+#     def _compute_area(self):
+#         for line in self:
+#             line.sqft = 0.0
+
+#             if not line.material:
+#                 continue
+#             if not line.length or not line.width:
+#                 continue
+#             if not line.qty or line.qty <= 0:
+#                 continue
+
+#             mat_name = self._normalize_material_name(line.material.name)
+
+#             if 'pinewood' in mat_name:
+#                 if not line.thickness:
+#                     continue
+#                 line.sqft = (
+#                     (line.length * line.width * line.thickness)
+#                     / (305 * 305 * 305) * (line.qty / 0.95))
+
+#             elif 'plywood' in mat_name:
+#                 line.sqft = (
+#                     (line.length / 1000) * (line.width / 1000) * line.qty / 0.95 * 10.764)
+
+#             elif any(k in mat_name for k in ['hdpe', 'vci', 'micron', 'meter']):
+#                 if not line.thickness:
+#                     continue
+#                 line.sqft = (
+#                     (
+#                         (2 * line.length * line.width)
+#                         + (2 * line.length * line.thickness)
+#                         + (2 * line.width * line.thickness)
+#                     )
+#                     * line.qty
+#                 )
+
+#     @api.depends('sqft', 'rm_rate')
+#     def _compute_amount(self):
+#         for line in self:
+#             line.amount = line.sqft * line.rm_rate
+
+
+
+#     def is_empty_line(self):
+#         self.ensure_one()
+#         return (
+#             not self.length and
+#             not self.width and
+#             not self.thickness and
+#             not self.qty and
+#             not self.rm_rate and
+#             not self.sqft and
+#             not self.amount
+#         )
+
+
+#     @api.depends('sqm', 'rm_rate')
+#     def _compute_box_rate(self):
+#         for rec in self:
+#             rec.box_rate = rec.sqm * rec.rm_rate
+
+
+
+#     @api.depends(
+#         'sheet_id.box_id_l',
+#         'sheet_id.box_id_w',
+#         'sheet_id.box_id_h',
+#         'sheet_id.bom_type',
+#         'sheet_id.line_ids',
+#         'sheet_id.line_ids.thickness',
+#         'sheet_id.line_ids.qty',
+#         'description',
+#         'thickness',
+#         'qty'
+#     )
+#     def _compute_dimensions(self):
+#         for line in self:
+#             if not line.sheet_id:
+#                 continue
+                
+#             rec = line.sheet_id
+#             L = rec.box_id_l or 0
+#             W = rec.box_id_w or 0
+#             H = rec.box_id_h or 0
+
+#             def get(name):
+#                 for l in rec.line_ids:
+#                     if l.description and name in l.description.name:
+#                         return l
+#                 return False
+
+#             # Only compute if this line has a description
+#             if not line.description:
+#                 continue
+
+#             desc_name = line.description.name
+
+#             # =====================================================
+#             # PALLET TYPES
+#             # =====================================================
+#             if rec.bom_type in ['pinewood_pallet', 'pinewood_plywood']:
+                
+#                 if 'Top Batten' in desc_name:
+#                     line.length = L
+#                     line.width = 75.0  # Keep existing width
+                    
+#                 elif 'Above Block Batten' in desc_name:
+#                     line.length = W
+#                     line.width = 75.0
+                    
+#                 elif 'Below Block Batten' in desc_name:
+#                     line.length = L
+#                     line.width = 75.0
+                    
+#                 elif 'Block' in desc_name:
+#                     line.length = 75.0
+#                     line.width = 75.0
+
+#             # =====================================================
+#             # 4 WAY RUNNER
+#             # =====================================================
+#             elif rec.bom_type == '4way_runner':
+                
+#                 ss_ply = get('SS Ply')
+#                 ss_h = get('SS Horizontal Batten')
+#                 base = get('Base Plywood')
+#                 lr = get('Length Runner')
+#                 pine = get('Pine Supp')
+#                 ls_h = get('LS Horizontal Batten')
+#                 ts_ply = get('TS Ply')
+#                 ts_l = get('TS L wise Batten')
+
+#                 if 'Base Plywood' in desc_name:
+#                     line.length = L + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#                     line.width = W
+
+#                 elif 'Length Runner' in desc_name:
+#                     line.length = (
+#                         L
+#                         + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#                         + ((ss_h.thickness * ss_h.qty / 2) if ss_h else 0)
+#                     )
+#                     line.width = (
+#                         H
+#                         + (base.thickness if base else 0)
+#                         + line.thickness
+#                         + (pine.thickness if pine else 0)
+#                     )
+
+#                 elif 'LS Ply' in desc_name and base:
+#                     line.length = base.length
+#                     line.width = H
+
+#                 elif 'LS Vertical' in desc_name and ls_h:
+#                     line.length = H - ((ls_h.width * ls_h.qty) / 2)
+
+#                 elif 'SS Ply' in desc_name:
+#                     line.length = H
+#                     line.width = (
+#                         H
+#                         + (base.thickness if base else 0)
+#                         + (pine.thickness if pine else 0)
+#                     )
+
+#                 elif 'SS Vertical' in desc_name and ss_h:
+#                     line.length = (
+#                         H
+#                         + (base.thickness if base else 0)
+#                         + (lr.thickness if lr else 0)
+#                     ) - ss_h.width
+
+#                 elif 'TS Ply' in desc_name:
+#                     line.length = (
+#                         L
+#                         + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#                         + ((ss_h.thickness * ss_h.qty) if ss_h else 0)
+#                     )
+#                     line.width = (
+#                         W
+#                         + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#                         + ((ss_h.thickness * ss_h.qty) if ss_h else 0)
+#                     )
+
+#                 elif 'TS W wise' in desc_name and ts_l and ts_ply:
+#                     line.length = ts_ply.width - (ts_l.width * ts_l.qty)
+
+#                 elif 'Pine Supp' in desc_name:
+#                     line.length = W
+
+#                 elif 'HDPE' in desc_name:
+#                     line.length = L / 1000
+#                     line.width = W / 1000
+#                     line.thickness = H / 1000
+
+#                 elif 'VCI' in desc_name:
+#                     line.length = (rec.box_od_l + 50) / 1000
+#                     line.width = (rec.box_od_w + 50) / 1000
+#                     line.thickness = (rec.box_od_h + 50) / 1000
+
+#             # =====================================================
+#             # BLOCK TYPE
+#             # =====================================================
+#             elif rec.bom_type == 'block_type':
+                
+#                 ls_ply = get('LS Ply')
+#                 ls_h = get('LS Horizontal Batten')
+#                 ss_ply = get('SS Ply')
+#                 ss_h = get('SS Horizontal Batten')
+#                 base = get('Base Plywood')
+#                 ts_ply = get('TS Ply')
+
+#                 if 'Base Plywood' in desc_name:
+#                     line.length = (
+#                         L
+#                         + ((ls_ply.thickness * ls_ply.qty) if ls_ply else 0)
+#                         + ((ls_h.thickness * ls_h.qty) if ls_h else 0)
+#                     )
+#                     line.width = (
+#                         W
+#                         + ((ss_ply.thickness * ss_ply.qty) if ss_ply else 0)
+#                         + ((ss_h.thickness * ss_h.qty) if ss_h else 0)
+#                     )
+
+#                 elif 'LS Ply' in desc_name and base:
+#                     line.length = base.length
+#                     line.width = H
+
+#                 elif 'TS Ply' in desc_name and base:
+#                     line.length = base.length
+#                     line.width = base.width
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#     # @api.onchange(
+#     #     'box_id_l',
+#     #     'box_id_w',
+#     #     'box_id_h',
+#     #     'bom_type',
+#     #     'line_ids',
+#     #     'line_ids.thickness',
+#     #     'line_ids.width',
+#     #     'line_ids.qty'
+#     # )
+#     # def _compute_dimensions(self):
+#     #     for line in self:
+#     #         sheet = line.sheet_id
+
+#     #         if not sheet:
+#     #             continue
+
+#     #         L = sheet.box_od_l or 0
+#     #         W = sheet.box_od_w or 0
+#     #         H = sheet.box_od_h or 0
+
+        
+#     #     for rec in self:
+
+#     #         L = rec.box_id_l or 0
+#     #         W = rec.box_id_w or 0
+#     #         H = rec.box_id_h or 0
+
+#     #         # helper to fetch line
+#     #         def get(name):
+#     #             return rec.line_ids.filtered(
+#     #                 lambda l: l.description and l.description.name == name
+#     #             )[:1]
+
+#     #         # common lines
+#     #         base = get('Base Plywood')
+#     #         lr = get('Length Runner')
+#     #         wr = get('Width Runner')
+
+#     #         ls_ply = get('LS Ply')
+#     #         ls_h = get('LS Horizontal Batten')
+#     #         ls_v = get('LS Vertical Batten')
+
+#     #         ss_ply = get('SS Ply')
+#     #         ss_h = get('SS Horizontal Batten')
+#     #         ss_v = get('SS Vertical Batten')
+
+#     #         ts_ply = get('TS Ply')
+#     #         ts_l = get('TS L wise Batten')
+#     #         ts_w = get('TS W wise Batten')
+
+#     #         pine = get('Pine Supp')
+#     #         hdpe = get('HDPE')
+#     #         vci = get('VCI')
+
+#     #         # =====================================================
+#     #         # 4 WAY RUNNER
+#     #         # =====================================================
+#     #         if rec.bom_type == '4way_runner':
+
+#     #             if base and ss_ply:
+#     #                 base.length = L + (ss_ply.thickness * ss_ply.qty)
+#     #                 base.width = W
+
+#     #             rec.box_od_l = base.length if base else 0
+#     #             rec.box_od_w = base.width if base else 0
+
+#     #             if lr and ss_ply and ss_h:
+#     #                 lr.length = (
+#     #                     L
+#     #                     + (ss_ply.thickness * ss_ply.qty)
+#     #                     + (ss_h.thickness * ss_h.qty / 2)
+#     #                 )
+#     #                 lr.width = (
+#     #                     H
+#     #                     + (base.thickness if base else 0)
+#     #                     + lr.thickness
+#     #                     + (pine.thickness if pine else 0)
+#     #                 )
+
+#     #             if ls_ply and base:
+#     #                 ls_ply.length = base.length
+#     #                 ls_ply.width = H
+
+#     #             if ls_v and ls_h:
+#     #                 ls_v.length = H - (ls_h.width * ls_h.qty / 2)
+
+#     #             if ss_ply:
+#     #                 ss_ply.length = H
+#     #                 ss_ply.width = (
+#     #                     H
+#     #                     + (base.thickness if base else 0)
+#     #                     + (pine.thickness if pine else 0)
+#     #                 )
+
+#     #             if ss_v and ss_h:
+#     #                 ss_v.length = (
+#     #                     H
+#     #                     + (base.thickness if base else 0)
+#     #                     + (lr.thickness if lr else 0)
+#     #                 ) - ss_h.width
+
+#     #             if ts_ply and ss_ply and ss_h:
+#     #                 ts_ply.length = (
+#     #                     L
+#     #                     + (ss_ply.thickness * ss_ply.qty)
+#     #                     + (ss_h.thickness * ss_h.qty)
+#     #                 )
+#     #                 ts_ply.width = (
+#     #                     W
+#     #                     + (ss_ply.thickness * ss_ply.qty)
+#     #                     + (ss_h.thickness * ss_h.qty)
+#     #                 )
+
+#     #             if ts_w and ts_l:
+#     #                 ts_w.length = ts_ply.width - (ts_l.width * ts_l.qty)
+
+#     #             if pine:
+#     #                 pine.length = W
+
+#     #             rec.box_od_h = (
+#     #                 (base.thickness if base else 0)
+#     #                 + (lr.thickness if lr else 0)
+#     #                 + (ls_ply.thickness if ls_ply else 0)
+#     #                 + (ts_ply.thickness if ts_ply else 0)
+#     #                 + (pine.thickness if pine else 0)
+#     #             )
+
+#     #             if hdpe:
+#     #                 hdpe.length = L / 1000
+#     #                 hdpe.width = W / 1000
+#     #                 hdpe.thickness = H / 1000
+
+#     #             if vci:
+#     #                 vci.length = (rec.box_od_l + 50) / 1000
+#     #                 vci.width = (rec.box_od_w + 50) / 1000
+#     #                 vci.thickness = (rec.box_od_h + 50) / 1000
+
+
+#     #         # =====================================================
+#     #         # PALLET TYPES
+#     #         # =====================================================
+
+#     #         if sheet.bom_type in ['pinewood_pallet', 'pinewood_plywood']:
+#     #             top = get('Top Batten')
+#     #             above = get('Above Block Batten')
+#     #             block = get('Block')
+#     #             below = get('Below Block Batten')
+
+#     #             if line.box_type == 'Top Batten':
+#     #                 line.length = sheet.box_od_l
+
+#     #             elif line.box_type == 'Above Block Batten':
+#     #                 line.length = sheet.box_od_w
+
+#     #             elif line.box_type == 'Below Block Batten':
+#     #                 line.length = sheet.box_od_l
+
+#     #             rec.box_od_h = (
+#     #                 (top.thickness if top else 0)
+#     #                 + (above.thickness if above else 0)
+#     #                 + (block.thickness if block else 0)
+#     #                 + (below.thickness if below else 0)
+#     #             )
+
+
+#     #         # =====================================================
+#     #         # BLOCK TYPE
+#     #         # =====================================================
+#     #         if rec.bom_type == 'block_type':
+
+#     #             above_block = get('Above Block Plank')
+#     #             below_block = get('Below Block Plank')
+
+#     #             if base and ls_ply and ls_h and ss_ply and ss_h:
+#     #                 base.length = (
+#     #                     L
+#     #                     + (ls_ply.thickness * ls_ply.qty)
+#     #                     + (ls_h.thickness * ls_h.qty)
+#     #                 )
+#     #                 base.width = (
+#     #                     W
+#     #                     + (ss_ply.thickness * ss_ply.qty)
+#     #                     + (ss_h.thickness * ss_h.qty)
+#     #                 )
+
+#     #             rec.box_od_l = base.length if base else 0
+#     #             rec.box_od_w = base.width if base else 0
+
+#     #             if ls_ply:
+#     #                 ls_ply.length = base.length
+#     #                 ls_ply.width = H
+
+#     #             if ts_ply:
+#     #                 ts_ply.length = base.length
+#     #                 ts_ply.width = base.width
+
+#     #             rec.box_od_h = (
+#     #                 H
+#     #                 + sum(rec.line_ids.filtered(lambda l: l.section == 'base').mapped('thickness'))
+#     #                 + (ts_ply.thickness if ts_ply else 0)
+#     #                 + (ts_l.thickness if ts_l else 0)
+#     #             )
+
+
+
+
+
+
+
+
+
+
+# class PackingCostSheet(models.Model):
+#     _name = 'packing.cost.sheet'
+#     _description = 'Packing Cost Sheet'
+#     _inherit = ['mail.thread', 'mail.activity.mixin']
+#     _rec_name = 'sequence_no'
+
+#     sequence_no = fields.Char(
+#         string="Packing Cost Sheet No",
+#         readonly=True,
+#         copy=False,
+#         index=True,
+#         default='New'
+#     )
+
+#     revision_no = fields.Integer(
+#         string="Revision No",
+#         default=0,
+#         tracking=True,
+#         copy=True  # Allow copying of revision_no
+#     )
+
+#     name = fields.Char(
+#         string="Revision",
+#         compute="_compute_revision_name",
+#         store=True,
+#         tracking=True
+#     )
+
+#     parent_id = fields.Many2one(
+#         'packing.cost.sheet',
+#         string="Parent BOM",
+#         readonly=True,
+#         copy=False,
+#         help="Original BOM if this is a revision"
+#     )
+
+#     child_ids = fields.One2many(
+#         'packing.cost.sheet',
+#         'parent_id',
+#         string="Revisions",
+#         copy=False
+#     )
+
+#     highest_revision = fields.Integer(
+#         string="Latest Revision",
+#         compute="_compute_highest_revision",
+#         store=False
+#     )
+#     display_sequence = fields.Char(
+#         string="Reference",
+#         compute="_compute_display_sequence",
+#         store=False
+#     )
+
+#     @api.depends('sequence_no', 'revision_no')
+#     def _compute_display_sequence(self):
+#         for rec in self:
+#             if rec.revision_no:
+#                 rec.display_sequence = f"{rec.sequence_no} / Rev-{rec.revision_no}"
+#             else:
+#                 rec.display_sequence = rec.sequence_no or ""
+
+#     lead_id = fields.Many2one(
+#         'crm.lead',
+#         string="CRM Lead",
+#         ondelete='cascade',
+#         index=True
+#     )
+
+
+#     currency_id = fields.Many2one(
+#         'res.currency',
+#         string="Currency",
+#         default=lambda self: self.env.company.currency_id,
+#         required=True
+#     )
+#     engineering_id = fields.Many2one(
+#         'engineering.team',
+#         string="Engineering Reference",
+#         ondelete='cascade',
+#         readonly=True
+#     )
+
+#     # HEADER DETAILS
+#     ref = fields.Char(string="Reference")
+#     part_name = fields.Char(string="Part Name")
+#     box_id_l = fields.Float(string='Length')
+#     box_id_w = fields.Float(string='Width')
+#     box_id_h = fields.Float(string='Height')
+
+#     # box_od_l = fields.Float(string='Length', compute="_compute_box_od_l")
+#     # box_od_w = fields.Float(string='Width', compute="_compute_box_od_w")
+#     # box_od_h = fields.Float(string='Height', compute="_compute_box_od_h")
+#     box_od_l = fields.Float(string='Length', compute ="_compute_box_od_l")
+#     box_od_w = fields.Float(string='Width')
+#     box_od_h = fields.Float(
+#         string='Height',
+#         compute="_compute_box_od_h",
+#         store=True,
+#         readonly=False
+#     )
+
+#     @api.depends(
+#         'bom_type',
+#         'box_id_l',
+#         'box_id_w',
+#         'line_ids.length',
+#         'line_ids.width',
+#         'line_ids.thickness',
+#         'line_ids.qty',
+#         'line_ids.description'
+#     )
+#     def _compute_box_od_l(self):
+#         for record in self:
+
+#             if record.bom_type == '4way_runner':
+
+#                 base_ply = record.line_ids.filtered(
+#                     lambda l: l.description == 'Base Plywood'
+#                 )
+
+#                 record.box_od_l = base_ply.length if base_ply else 0.0
+
+#             else:
+#                 record.box_od_l = 0.0
+
+#     @api.depends(
+#         'bom_type',
+#         'box_id_l',
+#         'box_id_w',
+#         'line_ids.length',
+#         'line_ids.width',
+#         'line_ids.thickness',
+#         'line_ids.qty',
+#         'line_ids.description'
+#     )
+#     def _compute_box_od_w(self):
+#         for record in self:
+
+#             if record.bom_type == '4way_runner':
+
+#                 base_ply = record.line_ids.filtered(
+#                     lambda l: l.description == 'Base Plywood'
+#                 )
+
+#                 record.box_od_w = base_ply.width if base_ply else 0.0
+
+#             else:
+#                 record.box_od_w = 0.0
+
+
+#     @api.depends(
+#         'bom_type',
+#         'box_id_h',
+#         'line_ids.thickness',
+#         'line_ids.section',
+#         'line_ids.description'
+#     )
+#     def _compute_box_od_h(self):
+#         for record in self:
+
+#             base_lines = record.line_ids.filtered(lambda l: l.section == 'base')
+#             top_lines = record.line_ids.filtered(lambda l: l.section == 'top_side')
+
+               
+#             # 1️⃣ Pinewood + Plywood Pallet
+#             # box_od_h = sum of all base thickness
+               
+#             if record.bom_type == 'pinewood_plywood':
+#                 record.box_od_h = sum(base_lines.mapped('thickness'))
+
+               
+#             # 2️⃣ Thyssen Heavy
+#             # box_od_h = box_id_h + (base plywood + length runner)
+               
+#             elif record.bom_type == 'thyssen_heavy':
+
+#                 base_ply = base_lines.filtered(
+#                     lambda l: l.description == 'Base Plywood'
+#                 )
+#                 length_runner = base_lines.filtered(
+#                     lambda l: l.description == 'Length Runner'
+#                 )
+
+#                 record.box_od_h = (
+#                     record.box_id_h
+#                     + sum(base_ply.mapped('thickness'))
+#                     + sum(length_runner.mapped('thickness'))
+#                 )
+
+               
+#             # 3️⃣ Block Type / 4 Way / 2 Way
+#             # box_od_h = box_id_h
+#             #            + sum(all base thickness)
+#             #            + TS Ply thickness
+#             #            + TS L wise Batten thickness
+               
+#             elif record.bom_type in ['block_type', '4way_runner', '2way_runner']:
+
+#                 ts_ply = top_lines.filtered(
+#                     lambda l: l.description == 'TS Ply'
+#                 )
+#                 ts_lwise = top_lines.filtered(
+#                     lambda l: l.description == 'TS L wise Batten'
+#                 )
+
+#                 record.box_od_h = (
+#                     record.box_id_h
+#                     + sum(base_lines.mapped('thickness'))
+#                     + sum(ts_ply.mapped('thickness'))
+#                     + sum(ts_lwise.mapped('thickness'))
+#                 )
+
+#             else:
+#                 record.box_od_h = 0.0
+
+
+#     part_weight = fields.Float("Part Weight (KGS)")
+#     empty_box_weight = fields.Float("Empty Box Weight (KGS)", compute="_compute_empty_box_weight")
+#     moq = fields.Integer("MOQ")
+
+#     # COST LINES
+#     line_ids = fields.One2many(
+#         'packing.cost.line',
+#         'sheet_id',
+#         string="Cost Details"
+#     )
+
+#     # TOTALS
+#     total_sqft = fields.Float(compute="_compute_totals", store=True)
+#     total_cft = fields.Float(compute="_compute_totals", store=True)
+#     material_total = fields.Monetary(compute="_compute_totals", store=True,  currency_field='currency_id')
+
+#     mfg_percent = fields.Float( string="MFG %" ,default=5.0)
+#     overhead_percent = fields.Float(string="Overhead %", default=5.0)
+#     profit_percent = fields.Float(string="Profit %", default=30.0)
+
+#     mfg_amount = fields.Monetary(compute="_compute_totals", store=True,  currency_field='currency_id')
+#     overhead_amount = fields.Monetary(compute="_compute_totals", store=True,  currency_field='currency_id')
+#     profit_amount = fields.Monetary(compute="_compute_totals", store=True,  currency_field='currency_id')
+
+#     freight = fields.Monetary(default=0.0,  currency_field='currency_id')
+#     packing_charges = fields.Monetary(default=0.0,  currency_field='currency_id')
+
+#     grand_total = fields.Monetary(compute="_compute_totals", store=True,  currency_field='currency_id')
+
+
+
+#     bom_type = fields.Selection([
+#         ('2way_runner', '2 Way Runner Type Pine + Ply Boxes'),
+#         ('4way_runner', '4 Way Runner Type Pine + Ply Boxes'),
+#         ('block_type', 'Block Type Pine + Plywood Wooden Boxes'),
+#         ('thyssen_heavy', 'Thyssen Heavy Pallets + Bags'),
+#         ('pinewood_pallet', 'Pinewood Pallet'),
+#         ('pinewood_plywood', 'Pinewood + Plywood Pallets'),
+#         ('ch_box', 'CH Boxes Cost Sheet Format'),
+#         ('full_pinewood_box', 'Full Pinewood Box'),
+#     ], string="BOM Type", required=True)
+
+#     @api.model
+#     def default_get(self, fields_list):
+#         res = super().default_get(fields_list)
+
+#         # Only for NEW BOM (not revisions)
+#         if not self.env.context.get('default_parent_id'):
+#             line_commands = []
+#             Description = self.env['description.master']
+
+#             bom_type = self.env.context.get('default_bom_type')
+
+#             if bom_type:
+#                 line_commands = []
+#                 Description = self.env['description.master']
+
+#             for line in self._get_default_bom_lines(bom_type):
+#                 desc = Description.search([
+#                     ('name', '=', line['description']),
+#                     ('section', '=', line['section'])
+#                 ], limit=1)
+
+#                 if not desc:
+#                     continue
+
+#                 line_commands.append((0, 0, {
+#                     'section': line['section'],
+#                     'description': desc.id,
+#                     'is_template': True,
+#                 }))
+
+#             res['line_ids'] = line_commands
+
+#         return res
+
+
+#     @api.depends('sequence_no', 'revision_no')
+#     def _compute_revision_name(self):
+#         for rec in self:
+#             if rec.revision_no == 0:
+#                 rec.name = f"{rec.sequence_no}"  # Original BOM - just sequence number
+#             else:
+#                 rec.name = f"{rec.sequence_no} / Rev-{rec.revision_no}"  # Revisions - with Rev-X
+
+#     @api.depends('revision_no', 'parent_id', 'parent_id.child_ids', 'child_ids.revision_no')
+#     def _compute_highest_revision(self):
+#         for rec in self:
+#             # Get the parent BOM (if this is a revision) or self (if original)
+#             parent_bom = rec.parent_id if rec.parent_id else rec
+            
+#             # Get all related BOMs (parent + all children) as a recordset
+#             all_boms = parent_bom | parent_bom.child_ids
+            
+#             # Find maximum revision number
+#             if all_boms:
+#                 rec.highest_revision = max(all_boms.mapped('revision_no'))
+#             else:
+#                 rec.highest_revision = rec.revision_no
+
+ 
+#     def action_create_revision(self):
+#         self.ensure_one()
+        
+#         parent_bom = self.parent_id if self.parent_id else self
+        
+#         all_existing_revisions = parent_bom | parent_bom.child_ids
+#         new_rev_no = max(all_existing_revisions.mapped('revision_no')) + 1
+        
+#         new_bom = self.copy({
+#             'sequence_no': parent_bom.sequence_no,
+#             'revision_no': new_rev_no,
+#             'parent_id': parent_bom.id,
+#             'part_name': self.part_name,  
+#             'ref': self.ref,               
+
+#         })
+        
+#         for line in self.line_ids:
+#             line.copy({'sheet_id': new_bom.id})
+        
+#         return {
+#             'type': 'ir.actions.act_window',
+#             'name': f'Revision {new_rev_no}',
+#             'res_model': 'packing.cost.sheet',
+#             'res_id': new_bom.id,
+#             'view_mode': 'form',
+#             'target': 'current',
+#         }
+
+
+
+#     def _get_default_bom_lines(self, bom_type):
+
+#         if bom_type == 'ch_box':
+#            return [
+#                 {
+#                     'sheet_id': self.id,
+#                     'sr_no': 1,
+#                     'box_type': 'Universal Box',
+#                     'length': 400,
+#                     'width': 300,
+#                     'height': 300,
+#                     'no_of_ply': 5,
+#                     'board_gsm': 1000,
+#                     'deckle': 0.625,
+#                     'cl': 1.48,
+#                     'weight_kg': 0.925,
+#                     'sqm': 0.925,
+#                 },
+#                 {
+#                     'sheet_id': self.id,
+#                     'sr_no': 2,
+#                     'box_type': 'Half Universal',
+#                     'length': 400,
+#                     'width': 300,
+#                     'height': 300,
+#                     'no_of_ply': 5,
+#                     'board_gsm': 1000,
+#                     'deckle': 0.475,
+#                     'cl': 1.48,
+#                     'weight_kg': 0.703,
+#                     'sqm': 0.703,
+#                 },
+#                 {
+#                     'sheet_id': self.id,
+#                     'sr_no': 3,
+#                     'box_type': 'Sleeve',
+#                     'length': 400,
+#                     'width': 300,
+#                     'height': 300,
+#                     'no_of_ply': 5,
+#                     'board_gsm': 1000,
+#                     'deckle': 0.325,
+#                     'cl': 1.48,
+#                     'weight_kg': 0.481,
+#                     'sqm': 0.481,
+#                 },
+#                 {
+#                     'sheet_id': self.id,
+#                     'sr_no': 4,
+#                     'box_type': 'Cap',
+#                     'length': 420,
+#                     'width': 320,
+#                     'height': 100,
+#                     'no_of_ply': 5,
+#                     'board_gsm': 1000,
+#                     'deckle': 0.545,
+#                     'cl': 0.645,
+#                     'weight_kg': 0.352,
+#                     'sqm': 0.352,
+#                 },
+#             ]
+            
+            
+
+#         elif bom_type == '2way_runner':
+#             return [
+#                 {'section': 'base', 'description': 'Base Plywood'},
+#                 {'section': 'base', 'description': 'Length Runner'},
+
+#                 {'section': 'long_side', 'description': 'LS Ply'},
+#                 {'section': 'long_side', 'description': 'LS Horizontal Batten'},
+#                 {'section': 'long_side', 'description': 'LS Vertical Batten'},
+
+#                 {'section': 'short_side', 'description': 'SS Ply'},
+#                 {'section': 'short_side', 'description': 'SS Horizontal Batten'},
+#                 {'section': 'short_side', 'description': 'SS Vertical Batten'},
+#                 {'section': 'short_side', 'description': 'SS Bharti'},
+
+#                 {'section': 'top_side', 'description': 'TS Ply'},
+#                 {'section': 'top_side', 'description': 'TS L wise Batten'},
+#                 {'section': 'top_side', 'description': 'TS W wise Batten'},
+
+#                 {'section': 'loose_pine_support', 'description': 'Pine Supp'},
+
+#                 {'section': 'consumables', 'description': 'HDPE'},
+#                 {'section': 'consumables', 'description': 'VCI'},
+#                 {'section': 'consumables', 'description': 'Desicant'},
+#             ]
+
+#         elif bom_type == '4way_runner':
+#             return [
+#                 {'section': 'base', 'description': 'Base Plywood'},
+#                 {'section': 'base', 'description': 'Length Runner'},
+#                 {'section': 'base', 'description': 'Width Runner'},  # extra
+
+#                 {'section': 'long_side', 'description': 'LS Ply'},
+#                 {'section': 'long_side', 'description': 'LS Horizontal Batten'},
+#                 {'section': 'long_side', 'description': 'LS Vertical Batten'},
+
+#                 {'section': 'short_side', 'description': 'SS Ply'},
+#                 {'section': 'short_side', 'description': 'SS Horizontal Batten'},
+#                 {'section': 'short_side', 'description': 'SS Vertical Batten'},
+#                 {'section': 'short_side', 'description': 'SS Bharti'},
+
+#                 {'section': 'top_side', 'description': 'TS Ply'},
+#                 {'section': 'top_side', 'description': 'TS L wise Batten'},
+#                 {'section': 'top_side', 'description': 'TS W wise Batten'},
+
+#                 {'section': 'loose_pine_support', 'description': 'Pine Supp'},
+
+#                 {'section': 'consumables', 'description': 'HDPE'},
+#                 {'section': 'consumables', 'description': 'VCI'},
+#                 {'section': 'consumables', 'description': 'Desicant'},
+#             ]
+
+#         elif bom_type == 'block_type':
+#             return [
+#                 {'section': 'base', 'description': 'Base Plywood'},
+#                 {'section': 'base', 'description': 'Above Block Plank'},
+#                 {'section': 'base', 'description': 'Block'},
+#                 {'section': 'base', 'description': 'Below Block Plank'},
+
+#                 {'section': 'long_side', 'description': 'LS Ply'},
+#                 {'section': 'long_side', 'description': 'LS Horizontal Batten'},
+#                 {'section': 'long_side', 'description': 'LS Vertical Batten'},
+
+#                 {'section': 'short_side', 'description': 'SS Ply'},
+#                 {'section': 'short_side', 'description': 'SS Horizontal Batten'},
+#                 {'section': 'short_side', 'description': 'SS Vertical Batten'},
+
+#                 {'section': 'top_side', 'description': 'TS Ply'},
+#                 {'section': 'top_side', 'description': 'TS L wise Batten'},
+#                 {'section': 'top_side', 'description': 'TS W wise Batten'},
+
+#                 {'section': 'loose_ply_sheet', 'description': 'Ply sheet'},
+#                 {'section': 'loose_pine_support', 'description': 'Pine Supp'},
+
+#                 {'section': 'consumables', 'description': 'HDPE'},
+#                 {'section': 'consumables', 'description': 'VCI'},
+#                 {'section': 'consumables', 'description': 'Desicant'},
+#             ]
+
+#         elif bom_type == 'thyssen_heavy':
+#             return [
+#                 {'section': 'base', 'description': 'Base Plywood'},
+#                 {'section': 'base', 'description': 'Length Runner'},
+#                 {'section': 'base', 'description': 'Width Runner'},
+
+#                 {'section': 'loose_pine_support', 'description': 'Pine Supp'},
+
+#                 {'section': 'consumables', 'description': 'Lag Screw 10x150 mm'},
+#                 {'section': 'consumables', 'description': 'M16x300 mm Nut Bolt'},
+#                 {'section': 'consumables', 'description': 'D Clamp & Lag Screw'},
+#                 {'section': 'consumables', 'description': 'HDPE'},
+#                 {'section': 'consumables', 'description': 'VCI'},
+#                 {'section': 'consumables', 'description': 'Aluminium Foil Bag'},
+#                 {'section': 'consumables', 'description': 'Silpaulin Bag'},
+#                 {'section': 'consumables', 'description': 'HDPE Bag'},
+#                 {'section': 'consumables', 'description': 'Desicant'},
+#                 {'section': 'consumables', 'description': '5 mm Foam'},
+#                 {'section': 'consumables', 'description': 'Bubble Roll'},
+#                 {'section': 'consumables', 'description': 'Lashing Belt'},
+#                 {'section': 'consumables', 'description': 'Buckles'},
+#                 {'section': 'consumables', 'description': 'Stretch wrap'},
+#             ]
+
+#         elif bom_type == 'pinewood_pallet':
+#             return [
+#                 {'section': 'base', 'description': 'Top Batten'},
+#                 {'section': 'base', 'description': 'Above Block Batten'},
+#                 {'section': 'base', 'description': 'Block'},
+#                 {'section': 'base', 'description': 'Below Block Batten'},
+#             ]
+#         elif bom_type == 'pinewood_plywood':
+#             return [
+#                 {'section': 'base', 'description': 'Top Batten'},
+#                 {'section': 'base', 'description': 'Above Block Batten'},
+#                 {'section': 'base', 'description': 'Block'},
+#                 {'section': 'base', 'description': 'Below Block Batten'},
+#             ]
+#         elif bom_type == 'full_pinewood_box':
+#             return [
+#                 # DECK
+#                 {'section': 'base', 'description': 'Deck'},
+#                 {'section': 'base', 'description': 'Length Runner'},
+#                 {'section': 'base', 'description': 'Width Runner'},
+#                 {'section': 'base', 'description': 'HDPE'},
+
+
+#                 # LONG SIDE
+#                 {'section': 'long_side', 'description': 'Long Side'},
+#                 {'section': 'long_side', 'description': 'H Batten'},
+#                 {'section': 'long_side', 'description': 'V Batten'},
+#                 {'section': 'long_side', 'description': 'HDPE'},
+
+
+#                 # SHORT SIDE
+#                 {'section': 'short_side', 'description': 'Short Side'},
+#                 {'section': 'short_side', 'description': 'H Batten'},
+#                 {'section': 'short_side', 'description': 'V Batten'},
+#                 {'section': 'short_side', 'description': 'HDPE'},
+
+
+#                 # TOP
+#                 {'section': 'top_side', 'description': 'Top'},
+#                 {'section': 'top_side', 'description': 'L Batten'},
+#                 {'section': 'top_side', 'description': 'W Batten'},
+
+#                 # SUPPORT
+#                 {'section': 'loose_pine_support', 'description': 'Loose Support'},
+
+#                 # PACKING MATERIAL
+#                 {'section': 'consumables', 'description': 'VCI Bag in SQM'},
+#                 {'section': 'consumables', 'description': 'Aluminium Bag in SQM'},
+#                 {'section': 'consumables', 'description': 'Bubble Sheet in SQM'},
+#                 {'section': 'consumables', 'description': 'Stretch Wrap in KG'},
+#                 {'section': 'consumables', 'description': 'Lashing 32mm in Meter'},
+#                 {'section': 'consumables', 'description': 'Buckle 32mm in Meter'},
+#                 {'section': 'consumables', 'description': 'Desiccant in KG'},
+#             ]
+
+
+#         return []
+
+
+#     def _create_default_lines(self):
+#         Description = self.env['description.master']
+
+#         lines = self._get_default_bom_lines(self.bom_type)
+
+#         for line in lines:
+#             desc = Description.search([
+#                 ('name', '=', line['description']),
+#                 ('section', '=', line['section'])
+#             ], limit=1)
+
+#             if not desc:
+#                 continue
+
+#             self.env['packing.cost.line'].create({
+#                 'sheet_id': self.id,
+#                 'section': line['section'],
+#                 'description': desc.id,
+#                 'is_template': True,
+#             })
+
+
+
+#     @api.onchange('bom_type')
+#     def _onchange_bom_type(self):
+#         if not self.bom_type:
+#             self.line_ids = [(5, 0, 0)]
+#             return
+
+#         line_commands = [(5, 0, 0)]
+
+#         lines = self._get_default_bom_lines(self.bom_type)
+
+#         if self.bom_type == 'ch_box':
+#             for line in lines:
+#                 line_commands.append((0, 0, {
+#                     'sr_no': line.get('sr_no'),
+#                     'box_type': line.get('box_type'),
+#                     'length': line.get('length'),
+#                     'width': line.get('width'),
+#                     'height': line.get('height'),
+#                     'no_of_ply': line.get('no_of_ply'),
+#                     'board_gsm': line.get('board_gsm'),
+#                     'deckle': line.get('deckle'),
+#                     'cl': line.get('cl'),
+#                     'weight_kg': line.get('weight_kg'),
+#                     'sqm': line.get('sqm'),
+#                 }))
+
+#         else:
+#             Description = self.env['description.master']
+
+#             for line in lines:
+#                 desc = Description.search([
+#                     ('name', '=', line['description']),
+#                     ('section', '=', line['section'])
+#                 ], limit=1)
+
+#                 if not desc:
+#                     continue
+
+#                 line_commands.append((0, 0, {
+#                     'section': line['section'],
+#                     'description': desc.id,
+#                     'is_template': True,
+#                 }))
+
+#         self.line_ids = line_commands
+
+
+#     @api.model
+#     def create(self, vals):
+#         if vals.get('sequence_no', 'New') == 'New':
+#             vals['sequence_no'] = self.env['ir.sequence'].next_by_code(
+#                 'packing.cost.sheet'
+#             ) or 'New'
+
+#         record = super().create(vals)
+
+#         if record.revision_no == 0 and not record.parent_id:
+#             record._create_default_lines()
+
+#         return record
+
+
+
+#     def action_view_revisions(self):
+#         self.ensure_one()
+#         parent_bom = self.parent_id if self.parent_id else self
+        
+#         return {
+#             'type': 'ir.actions.act_window',
+#             'name': 'All Revisions',
+#             'res_model': 'packing.cost.sheet',
+#             'view_mode': 'tree,form',
+#             'domain': ['|', ('id', '=', parent_bom.id), ('parent_id', '=', parent_bom.id)],
+#         }
+
+
+
+#     @api.depends(
+#         'line_ids.amount',
+#         'line_ids.sqft',
+#         'line_ids.material',
+#         'line_ids.material.name',
+#         'mfg_percent',
+#         'overhead_percent',
+#         'profit_percent',
+#         'freight',
+#         'packing_charges'
+#     )
+#     def _compute_totals(self):
+#         for rec in self:
+#             total_sqft = 0.0
+#             total_cft = 0.0
+
+#             for line in rec.line_ids:
+#                 if not line.material:
+#                     continue
+
+#                 mat_name = (line.material.name or '').lower()
+
+#                 if 'plywood' in mat_name:
+#                     total_sqft += line.sqft or 0.0
+
+#                 elif any(k in mat_name for k in ['pinewood', 'rubberwood', 'junglewood']):
+#                     total_cft += line.sqft or 0.0
+
+#             rec.total_sqft = total_sqft
+#             rec.total_cft = total_cft
+
+#             rec.material_total = sum(rec.line_ids.mapped('amount'))
+
+#             rec.mfg_amount = rec.material_total * rec.mfg_percent / 100
+#             rec.overhead_amount = rec.material_total * rec.overhead_percent / 100
+#             rec.profit_amount = rec.material_total * rec.profit_percent / 100
+
+#             rec.grand_total = (
+#                 rec.material_total
+#                 + rec.mfg_amount
+#                 + rec.overhead_amount
+#                 + rec.profit_amount
+#                 + rec.freight
+#                 + rec.packing_charges
+#             )
+
+
+#     @api.depends('total_cft', 'total_sqft')
+#     def _compute_empty_box_weight(self):
+#         for record in self:
+#             record.empty_box_weight = (((record.total_cft * 17) + (record.total_sqft * 0.6)) + 20)
+
+
+#     def _remove_empty_lines(self):
+#         for rec in self:
+#             empty_lines = rec.line_ids.filtered(lambda l: l.is_empty_line())
+#             empty_lines.unlink()
+
+#     def write(self, vals):
+#         res = super().write(vals)
+
+#         self._remove_empty_lines()
+
+#         return res
+
+
+
+# class PackingCostLine(models.Model):
+#     _name = 'packing.cost.line'
+#     _description = 'Packing Cost Line'
+
+#     sheet_id = fields.Many2one(
+#         'packing.cost.sheet',
+#         ondelete='cascade'
+#     )
+
+#     is_template = fields.Boolean(
+#         string="Template Line",
+#         default=False
+#     )
+
+#     section = fields.Selection([
+#         ('base', 'Base'),
+#         ('long_side', 'Long Side'),
+#         ('short_side', 'Short Side'),
+#         ('top_side', 'Top Side'),
+#         ('loose_ply_sheet', 'Loose Ply Sheet'),
+#         ('loose_pine_support', 'Loose Pine Support'),
+#         ('consumables', 'Consumables')
+#     ], string="Section")
+
+#     description = fields.Many2one('description.master', string="Description")
+
+#     length = fields.Float("Length"    , compute="_compute_dimensions",
+#     store=True,  readonly=False)
+#     width = fields.Float("Width"   ,  compute="_compute_dimensions",
+#     store=True,  readonly=False)
+#     thickness = fields.Float("Thickness"   ,  compute="_compute_dimensions",
+#     store=True,  readonly=False)
+#     qty = fields.Float("Qty")
+
+#     sqft = fields.Float("SQFT/CFT", compute="_compute_area", store=True)
+
+#     material = fields.Many2one('material.master', string="Material")
+#     rm_rate = fields.Float("RM Rate")
+#     amount = fields.Float("Amount", compute="_compute_amount", store=True)
+
+
+#     # CH BOX FIELDS
+#     sr_no = fields.Integer("Sr.No")
+#     box_type = fields.Char("Box Type")
+
+#     height = fields.Float("Height")
+#     no_of_ply = fields.Integer("No.Of Ply")
+#     board_gsm = fields.Float("Board GSM")
+
+#     deckle = fields.Float("Deckle")
+#     cl = fields.Float("CL")
+
+#     weight_kg = fields.Float("Weight/KG")
+#     sqm = fields.Float("SQM")
+
+#     box_rate = fields.Float("Box Rate", compute="_compute_box_rate", store=True)
+    
+
+
+#     def _normalize_material_name(self, name):
+#         if not name:
+#             return ''
+#         return re.sub(r'[^a-z0-9]', '', name.lower())
+
+#     @api.depends('length', 'width', 'thickness', 'qty', 'material')
+#     def _compute_area(self):
+#         for line in self:
+#             line.sqft = 0.0
+
+#             if not line.material:
+#                 continue
+#             if not line.length or not line.width:
+#                 continue
+#             if not line.qty or line.qty <= 0:
+#                 continue
+
+#             mat_name = self._normalize_material_name(line.material.name)
+
+#             if 'pinewood' in mat_name:
+#                 if not line.thickness:
+#                     continue
+#                 line.sqft = (
+#                     (line.length * line.width * line.thickness)
+#                     / (305 * 305 * 305) * (line.qty / 0.95))
+
+#             elif 'plywood' in mat_name:
+#                 line.sqft = (
+#                     (line.length / 1000) * (line.width / 1000) * line.qty / 0.95 * 10.764)
+
+#             elif any(k in mat_name for k in ['hdpe', 'vci', 'micron', 'meter']):
+#                 if not line.thickness:
+#                     continue
+#                 line.sqft = (
+#                     (
+#                         (2 * line.length * line.width)
+#                         + (2 * line.length * line.thickness)
+#                         + (2 * line.width * line.thickness)
+#                     )
+#                     * line.qty
+#                 )
+
+#     @api.depends('sqft', 'rm_rate')
+#     def _compute_amount(self):
+#         for line in self:
+#             line.amount = line.sqft * line.rm_rate
+
+
+
+#     def is_empty_line(self):
+#         self.ensure_one()
+#         return (
+#             not self.length and
+#             not self.width and
+#             not self.thickness and
+#             not self.qty and
+#             not self.rm_rate and
+#             not self.sqft and
+#             not self.amount
+#         )
+    
+#     @api.depends('sqm', 'rm_rate')
+#     def _compute_box_rate(self):
+#         for rec in self:
+#             rec.box_rate = rec.sqm * rec.rm_rate
+
+
+
+#     @api.depends(
+#         'sheet_id.box_id_l',
+#         'sheet_id.box_id_w',
+#         'sheet_id.box_id_h',
+#         'sheet_id.line_ids.length',
+#         'sheet_id.line_ids.width',
+#         'sheet_id.line_ids.height',
+#         'sheet_id.line_ids.thickness',
+#         'sheet_id.line_ids.qty',
+#     )
+#     def _compute_dimensions(self):
+#         for line in self:
+#             sheet = line.sheet_id
+#             if not sheet or sheet.bom_type != '4way_runner':
+#                 continue
+
+               
+#             # BASIC BOX DIMENSIONS
+               
+#             box_id_l = sheet.box_id_l or 0.0
+#             box_id_w = sheet.box_id_w or 0.0
+#             box_id_h = sheet.box_id_h or 0.0
+
+#             desc = line.description.name if line.description else ''
+
+               
+#             # FETCH REQUIRED LINES
+               
+#             def get_lines(name):
+#                 return sheet.line_ids.filtered(
+#                     lambda l: l.description and l.description.name == name
+#                 )
+
+#             def total(field, name):
+#                 return sum(get_lines(name).mapped(field))
+
+#             ss_ply_thickness_total = total('thickness', 'SS Ply')
+
+#             ss_h_thickness = total('thickness', 'SS Horizontal Batten')
+#             ss_h_qty = total('qty', 'SS Horizontal Batten')
+#             ss_h_width = total('width', 'SS Horizontal Batten')
+
+#             ss_v_width = total('width', 'SS Vertical Batten')
+#             ss_v_qty = total('qty', 'SS Vertical Batten')
+
+#             ls_h_width = total('width', 'LS Horizontal Batten')
+#             ls_h_qty = total('qty', 'LS Horizontal Batten')
+
+#             base_ply = get_lines('Base Plywood')
+#             base_ply_thickness = sum(base_ply.mapped('thickness'))
+
+#             length_runner = get_lines('Length Runner')
+#             length_runner_thickness = sum(length_runner.mapped('thickness'))
+
+#             # Pine Support
+#             pine_supply = get_lines('Pine Supp')
+#             pine_supply_thickness = sum(pine_supply.mapped('thickness'))
+
+               
+#             # BASE PLYWOOD
+               
+#             if desc == 'Base Plywood':
+#                 line.length = box_id_l + ss_ply_thickness_total
+#                 line.width = box_id_w
+
+               
+#             # LENGTH RUNNER
+               
+#             elif desc == 'Length Runner':
+#                 line.length = (
+#                     box_id_l
+#                     + ss_ply_thickness_total
+#                     + (ss_h_thickness * ss_h_qty / 2)
+#                 )
+
+#                 line.width = (
+#                     box_id_h
+#                     + base_ply_thickness
+#                     + length_runner_thickness
+#                     + pine_supply_thickness
+#                 )
+
+               
+#             # LS HORIZONTAL BATTEN
+               
+#             elif desc == 'LS Horizontal Batten':
+#                 ls_ply = get_lines('LS Ply')
+#                 line.length = sum(ls_ply.mapped('length'))
+
+               
+#             # LS VERTICAL BATTEN
+               
+#             elif desc == 'LS Vertical Batten':
+#                 line.length = box_id_h - (ls_h_width * ls_h_qty / 2)
+
+               
+#             # SS PLY
+               
+#             elif desc == 'SS Ply':
+#                 line.length = box_id_h
+#                 line.width = (
+#                     box_id_h
+#                     + base_ply_thickness
+#                     + pine_supply_thickness
+#                 )
+
+               
+#             # SS HORIZONTAL BATTEN
+               
+#             elif desc == 'SS Horizontal Batten':
+#                 ss_ply = get_lines('SS Ply')
+#                 line.length = sum(ss_ply.mapped('length'))
+
+               
+#             # SS VERTICAL BATTEN
+               
+#             elif desc == 'SS Vertical Batten':
+#                 line.length = (
+#                     box_id_h
+#                     + base_ply_thickness
+#                     + length_runner_thickness
+#                     - ss_h_width
+#                 )
+
+               
+#             # SS BHARTI
+               
+#             elif desc == 'SS Bharti':
+#                 ss_ply = get_lines('SS Ply')
+#                 ss_ply_length = sum(ss_ply.mapped('length'))
+
+#                 line.length = (
+#                     ss_ply_length
+#                     - (ss_v_width * ss_v_qty / 2)
+#                 )
+
+               
+#             # TS PLY
+               
+#             elif desc == 'TS Ply':
+#                 line.length = (
+#                     box_id_l
+#                     + ss_ply_thickness_total
+#                     + (ss_h_thickness * ss_h_qty)
+#                 )
+
+#                 line.width = (
+#                     box_id_w
+#                     + ss_ply_thickness_total
+#                     + (ss_h_thickness * ss_h_qty)
+#                 )
+
+               
+#             # TS L WISE BATTEN
+               
+#             elif desc == 'TS L wise Batten':
+#                 ts_ply = get_lines('TS Ply')
+#                 line.length = sum(ts_ply.mapped('length'))
+
+               
+#             # TS W WISE BATTEN
+               
+#             elif desc == 'TS W wise Batten':
+#                 ts_ply = get_lines('TS Ply')
+#                 ts_width = sum(ts_ply.mapped('width'))
+
+#                 top_l = get_lines('TS L wise Batten')
+#                 top_l_width = sum(top_l.mapped('width'))
+#                 top_l_qty = sum(top_l.mapped('qty'))
+
+#                 line.length = ts_width - (top_l_width * top_l_qty)
+
+               
+#             # PINE SUPPORT
+               
+#             elif desc == 'Pine Supp':
+#                 line.length = box_id_w
+
+               
+#             # HDPE
+               
+#             elif desc == 'HDPE':
+#                 line.length = box_id_l / 1000
+#                 line.width = box_id_w / 1000
+#                 line.thickness = box_id_h / 1000
+
+               
+#             # VCI
+               
+#             elif desc == 'VCI':
+#                 line.length = (sheet.box_od_l + 50) / 1000
+#                 line.width = (box_id_l + 50) / 1000
+#                 line.thickness = (sheet.box_od_h + 50) / 1000
+
+            
+
+
+
+
+class MaterialMaster(models.Model):
+    _name = 'material.master'
+    _description = 'Material Master'
+    _rec_name = 'name'
+
+    name = fields.Char(
+        string="Material Name",
+        required=True
+    )
+
+
+class DescriptionlMaster(models.Model):
+    _name = 'description.master'
+    _description = 'Description Master'
+    _rec_name = 'name'
+
+    name = fields.Char(
+        string="Description Name",
+        required=True
+    )
+    section = fields.Selection([
+        ('base', 'Base'),
+        ('long_side', 'Long Side'),
+        ('short_side', 'Short Side'),
+        ('top_side', 'Top Side'),
+        ('loose_ply_sheet', 'Loose Ply Sheet'),
+        ('loose_pine_support', 'Loose Pine Support'),
+        ('consumables', 'Consumables')
+    ], string="Section")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

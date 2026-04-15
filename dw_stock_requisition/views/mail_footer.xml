@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <template id="mail_notification_layout_dreamwarez"
+              inherit_id="mail.mail_notification_layout">
+
+        <!-- Replace "Powered by Odoo" link -->
+        <xpath expr="//a[contains(@href, 'odoo.com')]"
+               position="replace">
+
+            <a href="https://dreamwarez.in"
+               style="color:#875A7B;
+                      text-decoration:none;
+                      font-weight:600;">
+                Dreamwarez
+            </a>
+
+        </xpath>
+
+    </template>
+
+</odoo>

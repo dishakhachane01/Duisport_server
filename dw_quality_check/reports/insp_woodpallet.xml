@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- ================= WOOD PALLET REPORT ================= -->
+
+    <template id="report_qc_wood_pallet">
+
+        <t t-call="web.html_container">
+
+            <meta charset="UTF-8"/>
+
+            <style>
+
+                @page {
+                    size: A4;
+                    margin: 5mm;
+                }
+
+                body {
+                    font-size: 14px;
+                    font-family: Arial, sans-serif;
+                }
+
+                .cell {
+                    border: 1px solid #000;
+                    padding: 6px;
+                    vertical-align: top;
+                }
+
+                .center {
+                    text-align: center;
+                }
+
+                .right {
+                    text-align: right;
+                }
+
+                .bold {
+                    font-weight: bold;
+                }
+
+                .header-table {
+                    width: 100%;
+                    border: 1px solid #000;
+                    border-collapse: collapse;
+                }
+
+                .header-cell {
+                    border: 1px solid #000;
+                    padding: 8px;
+                    vertical-align: middle;
+                }
+
+            </style>
+
+
+            <t t-foreach="docs" t-as="o">
+
+                <div style="width:100%; height:287mm;">
+
+
+                    <!-- ================= HEADER ================= -->
+
+                    <table class="header-table">
+
+                        <tr>
+
+                            <!-- Logo -->
+                            <td class="header-cell center" style="width:20%;">
+
+                                <img t-if="env.company.logo"
+                                     t-att-src="'data:image/png;base64,%s' % env.company.logo.decode()"
+                                     style="max-width:120px; max-height:70px;"
+                                     alt="Logo"/>
+
+                            </td>
+
+
+                            <!-- Title -->
+                            <td class="header-cell center" style="width:50%;">
+
+                                <div class="bold" style="font-size:14px;">
+                                    DUISPORT PACKING LOGISTICS INDIA PVT LTD.
+                                </div>
+
+                                <div class="bold" style="font-size:16px; margin-top:5px;">
+                                    Incoming Inspection Report
+                                </div>
+
+                                <div class="bold" style="font-size:14px; margin-top:5px;">
+                                    Wooden / Wood Pallet
+                                </div>
+
+                            </td>
+
+
+                            <!-- Doc Info -->
+                            <td class="header-cell" style="width:30%;">
+
+                                <div><b>DOC NO :</b> <t t-esc="o.name"/></div>
+
+                                <div style="margin-top:8px;">
+                                    <b>REV NO :</b> 00
+                                </div>
+
+                                <div style="margin-top:8px;">
+                                    <b>REV DATE :</b> 
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+
+                    <!-- ================= TOP DETAILS ================= -->
+
+                    <table style="width:100%; border-collapse:collapse; border:1px solid #000; border-top:none;">
+
+                        <tr>
+
+                            <td class="cell" style="width:50%;">
+                                <b>Date :</b>
+                                <t t-esc="o.date.strftime('%d-%m-%Y') if o.date else ''"/>
+                            </td>
+
+                            <td class="cell" style="width:50%;">
+                                <b>Supplier Code :</b>
+                                <t t-esc="o.supplier_code"/>
+                            </td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="cell">
+                                <b>Material Type/Name :</b>
+                                <t t-esc="o.material_name"/>
+                            </td>
+
+                            <td class="cell">
+                                <b>Customer Code/Model :</b>
+                                <t t-esc="o.customer_code"/>
+                            </td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="cell">
+                                <b>Invoice No./Date :</b>
+                                <t t-esc="o.invoice_no"/> /
+                                <t t-esc="o.invoice_date"/>
+                            </td>
+
+                            <td class="cell">
+                                <b>Invoice Qty :</b>
+                                <t t-esc="o.invoice_qty"/>
+                            </td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="cell">
+                                <b>For sampling :</b>
+                                Sampling plan DPLIPL/CH/QAD/01, Based on IS-2500
+                            </td>
+
+                            <td class="cell">
+                                <b>Sample Qty :</b>
+                                <t t-esc="o.sample_qty"/>
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+
+                    <!-- ================= INSPECTION TABLE ================= -->
+
+                    <table style="width:100%; border-collapse:collapse; margin-top:-1px;">
+
+                        <tr class="center bold" style="background:#f0f0f0;">
+
+                            <td class="cell" style="width:8%;">S.No</td>
+                            <td class="cell" style="width:35%;">Inspection Parameters</td>
+                            <td class="cell" style="width:25%;">Std. Specification</td>
+                            <td class="cell" style="width:32%;">Observations</td>
+
+                        </tr>
+
+
+                        <t t-foreach="o.inspection_lines" t-as="line">
+
+                            <tr>
+
+                                <td class="cell center">
+                                    <t t-esc="line.sequence"/>
+                                </td>
+
+                                <td class="cell">
+                                    <t t-esc="line.parameter"/>
+                                </td>
+
+                                <td class="cell center">
+                                    <t t-esc="line.specification"/>
+                                </td>
+
+                                <td class="cell">
+                                    <t t-esc="line.observation"/>
+                                </td>
+
+                            </tr>
+
+                        </t>
+
+                    </table>
+
+
+
+                    <!-- ================= NOTE ================= -->
+
+                    <table style="width:100%; border-collapse:collapse;">
+
+                        <tr>
+
+                            <td class="cell">
+
+                                <b>Note :</b><br/>
+
+                                Weight of Plywood sheet 2440 × 1220
+                                Thickness - 06 / 12 / 15 / 18 / 24 mm :
+                                09 / 21 / 28 / 33 / 38 kg respectively.
+
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+
+                    <!-- ================= RESULT ================= -->
+
+                    <table style="width:100%; border-collapse:collapse;">
+
+
+                        <tr>
+
+                            <td class="cell" style="width:25%;">
+                                <b>Qty Accepted :</b>
+                                <t t-esc="o.qty_accepted"/>
+                            </td>
+
+                            <td class="cell" style="width:25%;">
+                                <b>Qty Hold/Reworked :</b>
+                                <t t-esc="o.qty_hold"/>
+                            </td>
+
+                            <td class="cell" style="width:25%;">
+                                <b>Qty Rejected :</b>
+                                <t t-esc="o.qty_rejected"/>
+                            </td>
+
+                            <td class="cell" style="width:25%;">
+                                <b>Qty Deviated :</b>
+                                <t t-esc="o.qty_deviated"/>
+                            </td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="cell" colspan="4">
+
+                                <b>Deviation Approved By (Name/Sign) :</b>
+                                <t t-esc="o.deviation_approved_by"/>
+
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+
+                    <!-- ================= REMARKS ================= -->
+
+                    <table style="width:100%; border-collapse:collapse;">
+
+
+                        <tr>
+
+                            <td class="cell">
+
+                                <b>Reason of Non-Confirmity :</b><br/>
+                                <t t-esc="o.reason_non_conformity"/>
+
+                            </td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="cell">
+
+                                <b>Corrective/Preventive Action :</b><br/>
+                                <t t-esc="o.corrective_action"/>
+
+                            </td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="cell">
+
+                                <b>Verification of Corrective/Preventive Action :</b><br/>
+                                <t t-esc="o.verification_action"/>
+
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+
+                    <!-- ================= SIGNATURE ================= -->
+
+                    <table style="width:100%; border-collapse:collapse;">
+
+
+                        <tr>
+
+                            <td class="cell" style="width:50%;">
+                                <b>Verified By (Name/Sign) :</b>
+                                <t t-esc="o.approved_by.name"/>
+                            </td>
+
+                            <td class="cell right" style="width:50%;">
+                                <b>Date :</b>
+                                <t t-esc="o.verified_date.strftime('%d-%m-%Y') if o.verified_date else ''"/>
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+                    <table style="width:100%; border-collapse:collapse;">
+
+
+                        <tr>
+
+                            <td class="cell center" style="height:70px; width:50%;">
+
+                                <b>INSPECTED BY :</b><br/><br/>
+                                <t t-esc="o.inspected_by.name if o.inspected_by else ''"/>
+
+                            </td>
+
+
+                            <td class="cell center" style="height:70px; width:50%;">
+
+                                <b>VERIFIED BY :</b><br/><br/>
+                                <t t-esc="o.approved_by.name if o.approved_by else ''"/>
+
+                            </td>
+
+                        </tr>
+
+                    </table>
+
+
+                </div>
+
+            </t>
+
+        </t>
+
+    </template>
+
+
+
+    <!-- ================= REPORT ACTION ================= -->
+
+    <record id="action_report_qc_wood_pallet" model="ir.actions.report">
+
+        <field name="name">Incoming Inspection Report - Wooden</field>
+
+        <field name="model">dw.quality.check</field>
+
+        <field name="report_type">qweb-pdf</field>
+
+        <field name="report_name">dw_quality_check.report_qc_wood_pallet</field>
+
+        <field name="report_file">dw_quality_check.report_qc_wood_pallet</field>
+
+        <field name="print_report_name">
+            'Incoming Inspection - Wooden - %s' % (object.name or '')
+        </field>
+
+    </record>
+
+</odoo>

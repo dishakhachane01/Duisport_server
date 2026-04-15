@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ==================== SALE ORDER ==================== -->
+        <record id="view_sale_order_product_no_create" model="ir.ui.view">
+            <field name="name">sale.order.product.no.create</field>
+            <field name="model">sale.order</field>
+            <field name="inherit_id" ref="sale.view_order_form"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='product_id']" position="attributes">
+                    <attribute name="options">{"no_create": true, "no_quick_create": true}</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- ==================== PURCHASE ORDER LINE ==================== -->
+        <record id="view_purchase_order_product_no_create" model="ir.ui.view">
+            <field name="name">purchase.order.line.product.no.create</field>
+            <field name="model">purchase.order.line</field>
+            <field name="inherit_id" ref="purchase.purchase_order_line_form2"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='product_id']" position="attributes">
+                    <attribute name="options">{"no_create": true, "no_quick_create": true}</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- ==================== STOCK MOVE ==================== -->
+        <record id="view_stock_move_product_no_create" model="ir.ui.view">
+            <field name="name">stock.move.product.no.create</field>
+            <field name="model">stock.move</field>
+            <field name="inherit_id" ref="stock.view_move_form"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='product_id']" position="attributes">
+                    <attribute name="options">{"no_create": true, "no_quick_create": true}</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- ==================== STOCK PICKING ==================== -->
+        <record id="view_stock_picking_product_no_create" model="ir.ui.view">
+            <field name="name">stock.picking.product.no.create</field>
+            <field name="model">stock.picking</field>
+            <field name="inherit_id" ref="stock.view_picking_form"/>
+            <field name="priority">99</field>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='product_id']" position="attributes">
+                    <attribute name="options">{"no_create": true, "no_quick_create": true}</attribute>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

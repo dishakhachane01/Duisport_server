@@ -1,0 +1,40 @@
+<odoo>
+
+    <record id="view_order_form_customer_po" model="ir.ui.view">
+        <field name="name">sale.order.form.customer.po</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Add button in header -->
+            <xpath expr="//button[@name='action_confirm']" position="after">
+                <button name="action_create_new_so_with_po"
+                        type="object"
+                        string="Create Sales Order"
+                        groups="account.group_account_user"
+                        class="btn-primary"/>
+            </xpath>
+
+            <!-- Show source sale order -->
+            <xpath expr="//sheet//group" position="inside">
+                <field name="source_sale_id" readonly="1"/>
+            </xpath>
+
+            <!-- Customer PO History Tab -->
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="Customer PO History">
+                    <field name="customer_po_ids">
+                        <tree editable="bottom">
+                            <field name="customer_po" filename="customer_po_filename"/>
+                            <field name="customer_po_filename"/>
+                            <field name="uploaded_by" readonly="1"/>
+                            <field name="uploaded_on" readonly="1"/>
+                        </tree>
+                    </field>
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

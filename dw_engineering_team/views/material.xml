@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+<record id="view_material_master_form" model="ir.ui.view">
+    <field name="name">material.master.form</field>
+    <field name="model">material.master</field>
+    <field name="arch" type="xml">
+        <form string="Material">
+            <sheet>
+                <group>
+                    <field name="name"/>
+                    <field name="rm_rate"/>
+                </group>
+            </sheet>
+        </form>
+    </field>
+</record>
+
+<record id="view_description_master_form" model="ir.ui.view">
+    <field name="name">description.master.form</field>
+    <field name="model">description.master</field>
+    <field name="arch" type="xml">
+        <form string="Description">
+            <sheet>
+                <group>
+                    <field name="name"/>
+                    <field name="section"/>
+                    <field name="material_id"/>
+                </group>
+            </sheet>
+        </form>
+    </field>
+</record>
+
+
+<record id="action_material_master" model="ir.actions.act_window">
+    <field name="name">Materials</field>
+    <field name="res_model">material.master</field>
+    <field name="view_mode">tree,form</field>
+</record>
+<record id="action_description_master" model="ir.actions.act_window">
+    <field name="name">Description</field>
+    <field name="res_model">description.master</field>
+    <field name="view_mode">tree,form</field>
+</record>
+
+
+<menuitem id="menu_material_master"
+          name="Materials"
+          parent="menu_bom"
+          action="action_material_master"
+          groups="dw_engineering_product.group_engineering_team"/>
+<menuitem id="menu_description_master"
+          name="Description"
+          parent="menu_bom"
+          action="action_description_master"
+          groups="dw_engineering_product.group_engineering_team"/>
+</odoo>

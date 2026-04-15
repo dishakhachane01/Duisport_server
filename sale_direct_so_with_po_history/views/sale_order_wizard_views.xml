@@ -1,0 +1,22 @@
+
+<odoo>
+    <record id="view_sale_order_create_po_wizard" model="ir.ui.view">
+        <field name="name">sale.order.create.po.wizard.form</field>
+        <field name="model">sale.order.create.po.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Create Sales Order">
+                <group>
+                    <field name="partner_id"/>
+                    <field name="customer_po" filename="customer_po_filename"/>
+                </group>
+                <footer>
+                    <button name="action_create_order"
+                            type="object"
+                            string="Create Order"
+                            class="btn-primary"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

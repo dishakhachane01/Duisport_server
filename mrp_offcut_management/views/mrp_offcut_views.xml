@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ─── IR Sequence ─────────────────────────────────────────────────── -->
+    <record id="seq_mrp_offcut" model="ir.sequence">
+        <field name="name">MRP Offcut</field>
+        <field name="code">mrp.offcut</field>
+        <field name="prefix">OCT/%(year)s/</field>
+        <field name="padding">4</field>
+        <field name="number_next">1</field>
+        <field name="number_increment">1</field>
+    </record>
+
+    <!-- ─── TREE VIEW ───────────────────────────────────────────────────── -->
+    <record id="view_mrp_offcut_tree" model="ir.ui.view">
+        <field name="name">mrp.offcut.tree</field>
+        <field name="model">mrp.offcut</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="state == 'draft'"
+                  decoration-warning="state == 'submitted'"
+                  decoration-success="state == 'approved'">
+                <field name="name"/>
+                <field name="production_id"/>
+                <field name="store_location_id"/>
+                <field name="total_offcut_lines" string="Lines"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state == 'submitted'"
+                       decoration-success="state == 'approved'"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- ─── FORM VIEW ───────────────────────────────────────────────────── -->
+    <record id="view_mrp_offcut_form" model="ir.ui.view">
+        <field name="name">mrp.offcut.form</field>
+        <field name="model">mrp.offcut</field>
+        <field name="arch" type="xml">
+            <form string="Offcut Entry">
+                <!-- STATUS BAR -->
+                <header>
+                    <button name="action_submit"
+                            type="object"
+                            string="Submit to Store"
+                            class="btn-primary"
+                            invisible="state != 'draft'"/>
+                    <button name="action_approve"
+                            type="object"
+                            string="Approve &amp; Transfer Stock"
+                            class="btn-success"
+                            invisible="state != 'submitted'"/>
+                    <button name="action_reset_draft"
+                            type="object"
+                            string="Reset to Draft"
+                            invisible="state != 'submitted'"/>
+                    <!-- <button name="action_view_stock_moves"
+                            type="object"
+                            string="View Stock Moves"
+                            invisible="state != 'approved'"/> -->
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,submitted,approved"/>
+                </header>
+
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group string="Manufacturing Info">
+                            <field name="production_id"
+                                   readonly="state in ('submitted', 'approved')"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="Store Info">
+                            <field name="store_location_id"
+                                   readonly="state in ('submitted', 'approved')"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Offcut Lines" name="offcut_lines">
+                            <!-- Info banner -->
+                            <div class="alert alert-info" role="alert"
+                                 invisible="production_id != False">
+                                <p>Please select a Manufacturing Order first to populate available raw materials.</p>
+                            </div>
+
+                            <field name="offcut_line_ids"
+                                   readonly="state in ('approved',)"
+                                   context="{'default_production_id': production_id}">
+                                <tree editable="bottom" decoration-danger="offcut_qty &lt;= 0">
+                                    <!-- Hidden field for domain filtering -->
+                                    <field name="available_product_ids" column_invisible="1"/>
+
+                                    <field name="product_id"
+                                           options="{'no_create': True, 'no_open': True}"/>
+                                    <field name="uom_id" readonly="1" optional="show"/>
+                                    <field name="planned_qty" string="Planned"/>
+                                    <field name="actual_qty" string="Actual Consumed"/>
+                                    <field name="offcut_qty" string="Offcut/Piece" readonly="1"/>
+                                    <field name="quantity" string="Pieces"/>
+                                    <field name="total_offcut" string="Total Offcut" readonly="1"
+                                           widget="float" options="{'digits': [16,3]}"/>
+                                </tree>
+                            </field>
+
+                            <!-- Summary row -->
+                            <group class="oe_subtotal_footer oe_right" col="2"
+                                   invisible="not offcut_line_ids">
+                                <label for="total_offcut_lines" string="Total Lines"/>
+                                <field name="total_offcut_lines" readonly="1"/>
+                            </group>
+                        </page>
+
+                        <page string="Notes" name="notes">
+                            <field name="notes" placeholder="Add internal notes here..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+
+                <!-- Chatter -->
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- ─── SEARCH VIEW ─────────────────────────────────────────────────── -->
+    <record id="view_mrp_offcut_search" model="ir.ui.view">
+        <field name="name">mrp.offcut.search</field>
+        <field name="model">mrp.offcut</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="production_id"/>
+                <separator/>
+                <filter string="Draft" name="draft" domain="[('state','=','draft')]"/>
+                <filter string="Submitted" name="submitted" domain="[('state','=','submitted')]"/>
+                <filter string="Approved" name="approved" domain="[('state','=','approved')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Manufacturing Order" name="group_mo"
+                            context="{'group_by': 'production_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ─── ACTION ──────────────────────────────────────────────────────── -->
+    <record id="action_mrp_offcut" model="ir.actions.act_window">
+        <field name="name">Offcut Entries</field>
+        <field name="res_model">mrp.offcut</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_mrp_offcut_search"/>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first Offcut Entry
+            </p>
+            <p>
+                Record leftover raw material from manufacturing orders.
+                Submit to store for stock transfer on approval.
+            </p>
+        </field>
+    </record>
+
+    <!-- ─── MENU ────────────────────────────────────────────────────────── -->
+    <menuitem id="menu_mrp_offcut_root"
+              name="Offcut Management"
+              parent="mrp.menu_mrp_root"
+              sequence="50"/>
+
+    <menuitem id="menu_mrp_offcut_list"
+              name="Offcut Entries"
+              parent="menu_mrp_offcut_root"
+              action="action_mrp_offcut"
+              sequence="10"/>
+
+</odoo>

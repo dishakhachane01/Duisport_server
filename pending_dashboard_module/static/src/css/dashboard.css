@@ -1,0 +1,8 @@
+.o_dashboard {
+    height: 100%;
+    overflow-y: auto;
+}
+
+.o_action_manager .o_content {
+    overflow: auto !important;
+}

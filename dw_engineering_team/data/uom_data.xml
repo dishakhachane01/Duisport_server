@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ========================= -->
+    <!-- UOM CATEGORIES -->
+    <!-- ========================= -->
+
+    <record id="uom_categ_weight_custom" model="uom.category">
+        <field name="name">Weight (Custom)</field>
+    </record>
+
+    <record id="uom_categ_length_custom" model="uom.category">
+        <field name="name">Length (Custom)</field>
+    </record>
+
+    <record id="uom_categ_unit_custom" model="uom.category">
+        <field name="name">Unit (Custom)</field>
+    </record>
+
+    <record id="uom_categ_area_custom" model="uom.category">
+        <field name="name">Area / Volume (Custom)</field>
+    </record>
+
+    <!-- ========================= -->
+    <!-- WEIGHT -->
+    <!-- ========================= -->
+
+    <record id="uom_kg_custom" model="uom.uom">
+        <field name="name">KG</field>
+        <field name="category_id" ref="uom_categ_weight_custom"/>
+        <field name="uom_type">reference</field>
+        <field name="factor">1</field>
+    </record>
+
+    <!-- ========================= -->
+    <!-- LENGTH -->
+    <!-- ========================= -->
+
+    <record id="uom_meter_custom" model="uom.uom">
+        <field name="name">Meter</field>
+        <field name="category_id" ref="uom_categ_length_custom"/>
+        <field name="uom_type">reference</field>
+        <field name="factor">1</field>
+    </record>
+
+    <!-- ========================= -->
+    <!-- UNITS -->
+    <!-- ========================= -->
+
+    <record id="uom_nos_custom" model="uom.uom">
+        <field name="name">Nos</field>
+        <field name="category_id" ref="uom_categ_unit_custom"/>
+        <field name="uom_type">reference</field>
+        <field name="factor">1</field>
+    </record>
+
+    <!-- ========================= -->
+    <!-- AREA / VOLUME -->
+    <!-- ========================= -->
+    <!-- AREA / VOLUME CATEGORY -->
+    <record id="uom_categ_area_custom" model="uom.category">
+        <field name="name">Area / Volume (Custom)</field>
+    </record>
+
+    <!-- Reference unit (ONLY ONE) -->
+    <record id="uom_sqft_custom" model="uom.uom">
+        <field name="name">SQFT</field>
+        <field name="category_id" ref="uom_categ_area_custom"/>
+        <field name="uom_type">reference</field>
+        <field name="factor">1</field>
+    </record>
+
+    <!-- Derived unit -->
+    <record id="uom_cft_custom" model="uom.uom">
+        <field name="name">CFT</field>
+        <field name="category_id" ref="uom_categ_area_custom"/>
+        <field name="uom_type">bigger</field>
+        <!-- 1 CFT = 144 SQFT (example – adjust if needed) -->
+        <field name="factor_inv">144</field>
+    </record>
+
+<record id="seq_packing_cost_sheet" model="ir.sequence">
+    <field name="name">Packing Cost Sheet</field>
+    <field name="code">packing.cost.sheet</field>
+    <field name="prefix">PCS/%(year)s/</field>
+    <field name="padding">4</field>
+</record>
+
+</odoo>

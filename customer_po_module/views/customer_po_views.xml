@@ -1,0 +1,73 @@
+<odoo>
+
+    <!-- ACTION FIRST -->
+    <record id="action_customer_po" model="ir.actions.act_window">
+        <field name="name">Customer PO</field>
+        <field name="res_model">customer.po</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- MENUS AFTER -->
+    <!-- <menuitem id="menu_customer_po_root" name="Customer PO"/> -->
+
+    <menuitem id="menu_customer_po"
+              name="Customer PO Records"
+              parent="sale.sale_menu_root"
+              action="action_customer_po"/>
+
+    <!-- VIEWS -->
+    <record id="view_customer_po_form" model="ir.ui.view">
+        <field name="name">customer.po.form</field>
+        <field name="model">customer.po</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_submit"
+                            type="object"
+                            string="Submit to Accounts"
+                            class="btn-primary"
+                            invisible="state != 'draft'"/>
+
+                    <button name="action_create_sale_order"
+                            type="object"
+                            string="Create Sale Order"
+                            class="btn-success"
+                            invisible="state != 'pending'"
+                            groups="customer_po_module.group_accounts_user_custom"/>
+
+                    <button name ="action_mark_done"
+                            type="object"
+                            string="Done"
+                            class="btn-success"
+                            invisible="state != 'pending'" 
+                            groups="customer_po_module.group_accounts_user_custom"/>
+
+
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,pending,done"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="customer_id"/>
+                        <field name="customer_po" filename="customer_po_filename"/>
+                        <field name="customer_po_date"/>
+                        <field name="customer_po_number"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_customer_po_tree" model="ir.ui.view">
+        <field name="name">customer.po.tree</field>
+        <field name="model">customer.po</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="customer_id"/>
+                <field name="customer_po_number"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+</odoo>

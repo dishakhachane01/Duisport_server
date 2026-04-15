@@ -1,0 +1,16 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_manufacture_or_purchase_wizard_user,access.manufacture.or.purchase.wizard.user,model_manufacture_or_purchase_wizard,,1,1,1,1
+access_manufacture_purchase_wizard_user,manufacture.purchase.wizard.user,model_manufacture_or_purchase_wizard,,1,1,1,1
+access_manufacture_purchase_wizard_purchase,manufacture.purchase.wizard.purchase,model_manufacture_or_purchase_wizard,,1,1,1,1
+access_production_request_user,production.request.user,model_production_request,mfg_flow_integration.group_store_department,1,1,1,1
+access_production_request_sales,production.request.sales,model_production_request,,1,1,1,1
+access_production_request_line_user,production.request.line.user,model_production_request_line,mfg_flow_integration.group_store_department,1,1,1,1
+access_production_request_line_user,production.request.line.user,model_production_request_line,mfg_flow_integration.group_store_department,1,1,1,1
+
+access_production_request_line,production.request.line,model_production_request_line,dw_stock_requisition.group_manufacturing_team,1,1,1,1
+access_production_request_line_sales,production.request.line.sales,model_production_request_line,,1,1,1,1
+access_sale_order_read_for_mfg,sale.order.read.for.mfg,model_sale_order,mfg_flow_integration.group_store_department,1,0,0,0
+
+
+
+access_sale_invoice_tracking,sale.invoice.tracking,model_sale_invoice_tracking,,1,1,1,1

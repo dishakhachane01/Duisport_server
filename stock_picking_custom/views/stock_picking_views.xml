@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Inherit the stock picking tree view to add extra columns for Receipts -->
+    <record id="stock_picking_tree_receipt_custom" model="ir.ui.view">
+        <field name="name">stock.picking.tree.receipt.custom</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.vpicktree"/>
+        <field name="arch" type="xml">
+
+            <!--
+                We are NOT removing any existing fields.
+                All additions use position="after" or position="before"
+                so that original columns remain and can be toggled via
+                the optional columns button (☰) in the list header.
+
+                Target order for Receipts:
+                reference | create_date (GRN Date) | Vendor | supplier_invoice_number | supplier_invoice_date
+            -->
+
+            <!-- 1. Make 'name' (Reference) column stay as-is – already first. -->
+
+            <!-- 2. Add create_date right after 'name' (Reference) -->
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="create_date"
+                       string="GRN Date"
+                       widget="date"
+                       optional="show"
+                       decoration-muted="state == 'cancel'"/>
+            </xpath>
+
+            <!-- 3. Add partner_id (Vendor) after create_date -->
+            <!--
+                partner_id may already exist in the base view as optional="hide".
+                We use a try-safe xpath targeting the optional hidden one and
+                flip it to show; if it is absent we insert it fresh.
+                Odoo 17 base vpicktree has partner_id as optional="hide".
+            -->
+            <xpath expr="//field[@name='partner_id']" position="attributes">
+                <attribute name="optional">show</attribute>
+                <attribute name="string">Vendor</attribute>
+            </xpath>
+
+            <!-- 4. Add Supplier Invoice Number after partner_id -->
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="supplier_invoice_number"
+                       string="Supplier Invoice Number"
+                       optional="show"
+                       decoration-muted="state == 'cancel'"/>
+            </xpath>
+
+            <!-- 5. Add Supplier Invoice Date after supplier_invoice_number -->
+            <xpath expr="//field[@name='supplier_invoice_number']" position="after">
+                <field name="supplier_invoice_date"
+                       string="Supplier Invoice Date"
+                       widget="date"
+                       optional="show"
+                       decoration-muted="state == 'cancel'"/>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

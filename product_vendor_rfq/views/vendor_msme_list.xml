@@ -1,0 +1,61 @@
+<odoo>
+
+    <!-- =========================
+         REPORT ACTION
+    ========================== -->
+    <record id="action_report_msme_vendors" model="ir.actions.report">
+        <field name="name">MSME Vendors</field>
+        <field name="model">res.partner</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">product_vendor_rfq.msme_vendor_pdf</field>
+        <field name="report_file">product_vendor_rfq.msme_vendor_pdf</field>
+        <field name="binding_model_id" ref="base.model_res_partner"/>
+        <field name="binding_type">report</field>
+    </record>
+
+
+    <!-- =========================
+         PDF TEMPLATE
+    ========================== -->
+    <template id="msme_vendor_pdf">
+        <t t-call="web.basic_layout">
+            <main>
+                <t t-set="vendors"
+                   t-value="env['res.partner'].search([('is_msme','=',True)])"/>
+
+            <div class="page" style="border:0.5px solid black;">
+                <div> <img t-att-src="'%s/product_vendor_rfq/static/src/img/header2.png' % request.env['ir.config_parameter'].sudo().get_param('web.base.url')"
+     style="width:100%; height:auto; border:1px solid #000;"/>
+                    </div>
+                <h4 style="text-align:center;">MSME Vendor List</h4>
+
+                <table class="table" style="border:1px solid black;">
+                    <thead>
+                        <tr>
+                            <th>Vendor Name</th>
+                            <th>Udyam Number</th>
+                            <th>GSTIN</th>
+                            <th>PAN</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-foreach="vendors" t-as="v">
+                            <tr>
+                                <td><t t-esc="v.name"/></td>
+                                <td><t t-esc="v.udyam_number"/></td>
+                                <td><t t-esc="v.vat"/></td>
+                                <td><t t-esc="v.l10n_in_pan"/></td>
+                                <td><t t-esc="v.phone"/></td>
+                                <td><t t-esc="v.email"/></td>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+            </div>
+            </main>
+        </t>
+    </template>
+
+</odoo>

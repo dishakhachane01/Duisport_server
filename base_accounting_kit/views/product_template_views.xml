@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Product Template -->
+    <record id="view_product_template_form_inherit" model="ir.ui.view">
+        <field name="name">Product Template (form)</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view"/>
+        <field name="arch" type="xml">
+        <field name="expense_policy" position="attributes">
+                <attribute name="invisible">1</attribute></field>
+        <field name="product_tooltip" position="attributes">
+                <attribute name="invisible">1</attribute></field>
+
+        <field name="uom_id" position="before">
+                <field name="dimension"/>
+                <field name="description"/>
+                <field name="length"/>
+                <field name="width"/>
+                <field name="thickness"/>
+                <field name="cal"/>
+                 <field name="opening_qty"/>
+                <field name="opening_qty_in_cft"/>
+                <field name="recieved_qty"/>
+                <field name="recieved_qty_in_cft"/>
+        
+            </field>
+                    <field name="product_tag_ids" position="after">
+               
+                <field name="consumed_qty"/>
+                <field name="closing_qty"/>
+                <field name="used_cft"/>
+                <field name="closing_cft"/>
+        
+            </field>
+
+            
+            <field name="property_account_expense_id" position="after">
+                <field name="asset_category_id"
+                    domain="[('type', '=', 'purchase')]"
+                    context="{'default_type': 'purchase'}"
+                    groups="account.group_account_user"/>
+            </field>
+        </field>
+    </record>
+</odoo>
+
+
+ 

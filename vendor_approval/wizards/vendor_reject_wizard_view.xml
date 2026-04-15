@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_vendor_reject_wizard_form" model="ir.ui.view">
+        <field name="name">vendor.reject.wizard.form</field>
+        <field name="model">vendor.reject.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reject Vendor">
+                <group>
+                    <field name="partner_ids" widget="many2many_tags" readonly="1"/>
+                    <field name="rejection_reason"
+                           placeholder="Enter reason for rejection (required)…"
+                           required="1"/>
+                </group>
+                <footer>
+                    <button name="action_confirm_reject"
+                            type="object"
+                            string="Reject &amp; Blacklist"
+                            class="btn-danger"/>
+                    <button string="Cancel"
+                            class="btn-secondary"
+                            special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

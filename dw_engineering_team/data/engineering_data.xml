@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="stage_analysis_done" model="crm.stage">
+        <field name="name">Analysis Done</field>
+        <field name="sequence">50</field>
+        <field name="fold">False</field>
+    </record>
+
+ 
+    <record id="seq_packing_cost_sheet" model="ir.sequence">
+        <field name="name">Packing Cost Sheet</field>
+        <field name="code">packing.cost.sheet</field>
+        <field name="prefix">PCS/%(year)s/</field>
+        <field name="padding">4</field>
+        <field name="company_id" eval="False"/>
+    </record>
+</odoo>

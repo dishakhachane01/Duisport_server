@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_partner_form_vendor_approval" model="ir.ui.view">
+        <field name="name">res.partner.form.vendor.approval</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+
+            <!-- ── Inject header before the sheet ── -->
+            <xpath expr="//sheet" position="before">
+                <header>
+
+                    <button name="action_send_for_accounts"
+                            type="object"
+                            string="Send for Accounts Approval"
+                            class="btn-primary"
+                            invisible="vendor_approval_state not in ['draft']"/>
+
+                    <!-- <button name="action_accounts_approve"
+                            type="object"
+                            string="Approve (Accounts)"
+                            class="btn-success"
+                            invisible="vendor_approval_state != 'to_approve_accounts'"
+                            groups="product_vendor_rfq.group_accounts_approval,product_vendor_rfq.group_accounts_approval"/>
+
+                    <button name="action_accounts_reject"
+                            type="object"
+                            string="Reject (Accounts)"
+                            class="btn-danger"
+                            invisible="vendor_approval_state != 'to_approve_accounts'"
+                            groups="product_vendor_rfq.group_accounts_approval,product_vendor_rfq.group_accounts_approval_m"/> -->
+
+              
+              
+              
+
+                    <button name="action_accounts_approve"
+                            type="object"
+                            string="Approve (Accounts)"
+                            class="btn-success"
+                            invisible="vendor_approval_state != 'to_approve_accounts'"
+                            groups="product_vendor_rfq.group_accounts_approval"/>
+                    
+                    <button name="action_accounts_approve"
+                            type="object"
+                            string="Approve (Accounts)"
+                            class="btn-success"
+                            invisible="vendor_approval_state != 'to_approve_accounts'"
+                            groups="product_vendor_rfq.group_accounts_approval_m"/>
+                    
+                    <!-- Reject — visible to either accounts group -->
+                    <button name="action_accounts_reject"
+                            type="object"
+                            string="Reject (Accounts)"
+                            class="btn-danger"
+                            invisible="vendor_approval_state != 'to_approve_accounts'"
+                            groups="product_vendor_rfq.group_accounts_approval"/>
+                    
+                    <button name="action_accounts_reject"
+                            type="object"
+                            string="Reject (Accounts)"
+                            class="btn-danger"
+                            invisible="vendor_approval_state != 'to_approve_accounts'"
+                            groups="product_vendor_rfq.group_accounts_approval_m"/>
+              
+              
+              
+                    <button name="action_management_approve"
+                            type="object"
+                            string="Approve (Management)"
+                            class="btn-success"
+                            invisible="vendor_approval_state != 'to_approve_management'"
+                            groups="product_vendor_rfq.group_management_approval"/>
+
+                    <button name="action_management_reject"
+                            type="object"
+                            string="Reject (Management)"
+                            class="btn-danger"
+                            invisible="vendor_approval_state != 'to_approve_management'"
+                            groups="product_vendor_rfq.group_management_approval"/>
+
+                    <field name="vendor_approval_state"
+                           widget="statusbar"
+                           statusbar_visible="draft,to_approve_accounts,to_approve_management,approved"/>
+
+                </header>
+            </xpath>
+
+            <!-- ── Append approval info at the bottom of the sheet ── -->
+            <xpath expr="//sheet/div[hasclass('oe_button_box')]" position="after">
+                <group string="Vendor Approval Info"
+                       invisible="vendor_approval_state == 'draft'">
+                    <field name="vendor_approval_state" readonly="1"/>
+                    <field name="rejection_reason"
+                           readonly="1"
+                           invisible="vendor_approval_state != 'rejected'"/>
+                </group>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

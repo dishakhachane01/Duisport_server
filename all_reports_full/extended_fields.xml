@@ -1,0 +1,230 @@
+<odoo>
+        <record id="view_move_form_invoice_line_challan" model="ir.ui.view">
+        <field name="name">account.move.form.invoice.line.challan</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@id='invoice_tab']//field[@name='invoice_line_ids']/tree/field[@name='name']"
+                   position="after">
+                <field name="hsn_code" string="HSN Code"/>
+            </xpath>
+
+        </field>
+    </record>
+
+    
+    <record id="view_move_form_delivery_challan" model="ir.ui.view">
+        <field name="name">account.move.form.delivery.challan</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//page[@id='invoice_tab']" position="inside">
+                <group string="Charges">
+                    <field name="freight_charge_x"/>
+                    <field name="packing_charge_x"/>
+                </group>
+
+                <!-- fields for credit note details only  -->
+                <group string="Credit Note Details"
+        invisible="move_type not in ('out_refund','in_refund')">
+
+                <field name="buyers_order_no"/>
+                <field name="payment_terms_selection"/>
+                <field name="other_references"/>
+                <field name="credit_dated"/>
+                <field name="dispatch_doc_no"/>
+                <field name="dispatched_through"/>
+                <field name="destination"/>
+                <field name="terms_of_delivery"/>
+
+            </group>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="view_move_form_customer_po" model="ir.ui.view">
+    <field name="name">account.move.form.customer.po</field>
+    <field name="model">account.move</field>
+    <field name="inherit_id" ref="account.view_move_form"/>
+    <field name="arch" type="xml">
+
+        <!-- Insert after GST Treatment field -->
+        <xpath expr="//field[@name='l10n_in_gst_treatment']" position="after">
+
+            <field name="customer_po"
+                   filename="customer_po_filename"
+                   readonly = "True"/>
+
+            <field name="customer_po_filename" invisible="1"/>
+
+
+        </xpath>
+
+    </field>
+</record>
+    <!-- <record id="view_move_form_customer_po" model="ir.ui.view">
+        <field name="name">account.move.form.customer.po</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="Customer PO">
+
+                    <group>
+                        <field name="customer_po"
+                               filename="customer_po_filename"
+                               readonly="1"/>
+
+                        <field name="customer_po_filename"
+                               invisible="1"/>
+                    </group>
+
+                </page>
+            </xpath>
+
+        </field>
+    </record> -->
+
+      
+  <record id="view_move_form_replace_customer" model="ir.ui.view">
+    <field name="name">account.move.form.replace.customer</field>
+    <field name="model">account.move</field>
+    <field name="inherit_id" ref="account.view_move_form"/>
+    <field name="arch" type="xml">
+        
+        <xpath expr="//field[@name='l10n_in_reseller_partner_id']" position="replace"></xpath>
+
+        <!-- Replace Customer/Vendor block -->
+        <xpath expr="//field[@name='partner_shipping_id']" position="after">
+
+            <!-- Consignee -->
+            <!-- <label for="consignee_name"
+                   string="Consignee"
+                   style="font-weight:bold;"
+                   invisible="move_type not in ('out_invoice','out_refund','out_receipt')"/>
+
+            <div class="o_col"
+                 invisible="move_type not in ('out_invoice','out_refund','out_receipt')">
+                <field name="consignee_name"
+                       widget="res_partner_many2one"
+                       nolabel="1"
+                       readonly="state != 'draft'"
+                       options="{'no_quick_create': True}"/>
+            </div> -->
+
+            <!-- Checkbox -->
+            <field name="is_consignee_same_as_biling"
+                   string="Same as Billing"
+                   readonly="state != 'draft'"/>
+
+            <!-- Billing Address -->
+            <label for="billing_address"
+                   string="Billing Address"
+                   style="font-weight:bold;"/>
+
+            <field name="billing_address"
+                   widget="res_partner_many2one"
+                   nolabel="1"
+            
+                   readonly="state != 'draft' and is_consignee_same_as_biling"/>
+
+        </xpath>
+
+    </field>
+</record>
+<record id="view_order_form_inherit_same_address" model="ir.ui.view">
+    <field name="name">sale.order.form.same.address</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_form"/>
+    <field name="arch" type="xml">
+
+        <xpath expr="//field[@name='partner_id']" position="after">
+            <field name="invoice_address_id"/>
+            <field name="is_same_address"/>
+            <field name="delivery_address_id"/>
+        </xpath>
+
+    </field>
+</record>
+
+<record id="view_purchase_order_form_inherit_vendor_ref" model="ir.ui.view">
+    <field name="name">purchase.order.form.vendor.ref.rename</field>
+    <field name="model">purchase.order</field>
+    <field name="inherit_id" ref="purchase.purchase_order_form"/>
+    <field name="arch" type="xml">
+
+        <xpath expr="//field[@name='partner_ref']" position="attributes">
+            <attribute name="string">Supplier Invoice Number</attribute>
+        </xpath>
+
+    </field>
+</record>
+
+<record id="view_picking_form_inherit_supplier_invoice" model="ir.ui.view">
+    <field name="name">stock.picking.form.supplier.invoice</field>
+    <field name="model">stock.picking</field>
+    <field name="inherit_id" ref="stock.view_picking_form"/>
+    <field name="arch" type="xml">
+
+        <xpath expr="//field[@name='origin']" position="after">
+            <field name="supplier_invoice_number"/>
+        </xpath>
+
+    </field>
+</record>
+
+
+    <record id="view_picking_form_delivery_extra" model="ir.ui.view">
+        <field name="name">stock.picking.form.delivery.extra</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+
+            <!-- Insert a new tab BEFORE Operations -->
+            <xpath expr="//notebook/page[@name='operations']" position="before">
+
+                <page string="Delivery Details"
+                      name="delivery_details"
+                      invisible="picking_type_code != 'outgoing'">
+
+                    <group>
+                        <group>
+                            <field name="is_consignee_same_as_biling"/>
+                            <field name="billing_address"
+                                   invisible="is_consignee_same_as_biling"/>
+
+                            <field name="contact_person"/>
+                            <field name="delivery_address"
+                                   readonly="is_consignee_same_as_biling"/>
+                        </group>
+
+                        <group>
+                            <field name="delivery_challan_no"/>
+                            <field name="challan_date"/>
+                            <field name="challan_type"/>
+
+                            <field name="transport_mode"/>
+                            <field name="transport_name"/>
+                            <field name="vehicle_no"/>
+                            <field name="eway_bill_no"/>
+                        </group>
+                    </group>
+
+                </page>
+
+            </xpath>
+
+        </field>
+    </record>
+
+
+
+
+
+
+
+</odoo>

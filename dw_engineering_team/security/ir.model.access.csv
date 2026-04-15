@@ -1,0 +1,26 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_engineering_team_analysis,Engineering Team Analysis,model_engineering_team,,1,1,1,1
+access_crm_lead_product_line_user,crm.lead.product.line,model_crm_lead_product_line,,1,1,1,1
+access_engineering_team_product_user,engineering.team.product,model_engineering_team_product,,1,1,1,1
+access_packing_cost_sheet_engineer,packing.cost.sheet,model_packing_cost_sheet,dw_engineering_product.group_engineering_team,1,1,1,1
+access_packing_cost_sheet_crm_admin,packing.cost.sheet,model_packing_cost_sheet,dw_crm.group_crm_admin,1,0,0,0
+access_packing_cost_sheet_crm_sales,packing.cost.sheet,model_packing_cost_sheet,dw_crm.group_crm_sales_team,1,0,0,0
+access_packing_cost_sheet_mfg,packing.cost.sheet,model_packing_cost_sheet,dw_stock_requisition.group_manufacturing_team,1,0,0,0
+access_packing_cost_line_engineer,packing.cost.line,model_packing_cost_line,dw_engineering_product.group_engineering_team,1,1,1,1
+access_packing_cost_line_crm,packing.cost.line,model_packing_cost_line,dw_crm.group_crm_sales_team,1,0,0,0
+access_packing_cost_line_crm_admin,packing.cost.line,model_packing_cost_line,dw_crm.group_crm_admin,1,0,0,0
+access_packing_cost_line_mfg,packing.cost.line,model_packing_cost_line,dw_stock_requisition.group_manufacturing_team,1,0,0,0
+access_material_master_engineer,material.master,model_material_master,dw_engineering_product.group_engineering_team,1,1,1,1
+access_material_master_crm,material.master,model_material_master,dw_crm.group_crm_sales_team,1,0,0,0
+access_material_master_crm_admin,material.master,model_material_master,dw_crm.group_crm_admin,1,0,0,0
+access_material_master_mfg,material.master,model_material_master,dw_stock_requisition.group_manufacturing_team,1,0,0,0
+access_description_master_engineer,description.master,model_description_master,dw_engineering_product.group_engineering_team,1,1,1,1
+access_description_master_crm,description.master,model_description_master,dw_crm.group_crm_sales_team,1,0,0,0
+access_description_master_crm_admin,description.master,model_description_master,dw_crm.group_crm_admin,1,0,0,0
+access_description_master_mfg,description.master,model_description_master,dw_stock_requisition.group_manufacturing_team,1,0,0,0
+access_engineering_response,engineering.response,model_engineering_response,,1,1,1,0
+access_packing_cost_revision_wizard,packing.cost.revision.wizard,model_packing_cost_revision_wizard,,1,1,1,1
+access_packing_cost_revision_history_engineer,packing.cost.revision.history,model_packing_cost_revision_history,dw_engineering_product.group_engineering_team,1,0,0,0
+access_packing_cost_revision_history_qc,packing.cost.revision.history,model_packing_cost_revision_history,dw_engineering_team.group_packing_quality_team,1,1,1,0
+access_packing_cost_revision_history_crm_sales,packing.cost.revision.history,model_packing_cost_revision_history,dw_crm.group_crm_sales_team,1,0,0,0
+access_packing_cost_revision_history_crm_admin,packing.cost.revision.history,model_packing_cost_revision_history,dw_crm.group_crm_admin,1,0,0,0

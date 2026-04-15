@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_mrp_offcut_user,mrp.offcut user,model_mrp_offcut,mrp.group_mrp_user,1,1,1,0
+access_mrp_offcut_manager,mrp.offcut manager,model_mrp_offcut,mrp.group_mrp_manager,1,1,1,1
+access_mrp_offcut_line_user,mrp.offcut.line user,model_mrp_offcut_line,mrp.group_mrp_user,1,1,1,0
+access_mrp_offcut_line_manager,mrp.offcut.line manager,model_mrp_offcut_line,mrp.group_mrp_manager,1,1,1,1

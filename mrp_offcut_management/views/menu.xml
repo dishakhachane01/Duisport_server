@@ -1,0 +1,11 @@
+
+<odoo>
+    <menuitem id="menu_mrp_offcut_root"
+              name="Offcut Management"
+              parent="mrp.menu_mrp_root"/>
+
+    <menuitem id="menu_mrp_offcut"
+              name="Offcut Entries"
+              parent="menu_mrp_offcut_root"
+              action="action_mrp_offcut"/>
+</odoo>
